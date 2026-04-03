@@ -348,11 +348,9 @@ export default function ClientDetailPage() {
       {/* 1. Header */}
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-start gap-4">
-          <Button asChild variant="ghost" size="sm" className="mt-0.5 text-muted-foreground px-2">
-            <Link href="/dashboard">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
+          <Link href="/dashboard" className="mt-0.5 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
           <div>
             {loading || !data ? (
               <div className="h-7 w-48 bg-muted rounded animate-pulse" />

@@ -316,12 +316,10 @@ export default function DashboardPage() {
                     <StatusBadge metrics={client.metrics} thresholds={client.thresholds} />
                   </TableCell>
                   <TableCell>
-                    <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-                      <Link href={`/clients/${client.id}`}>
-                        Ver detalle
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
+                    <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                      Ver detalle
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))
