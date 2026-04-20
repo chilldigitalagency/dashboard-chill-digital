@@ -81,7 +81,7 @@ function BarLabel(props: { x?: number; y?: number; width?: number; height?: numb
   if (!value) return null;
   const cy = height < 22 ? y + height / 2 + 4 : y + 14;
   return (
-    <text x={x + width / 2} y={cy} textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize={11} fontWeight={600}>
+    <text x={x + width / 2} y={cy} textAnchor="middle" fill="#ffffff" fontSize={11} fontWeight={600} style={{ opacity: 0.9 }}>
       {value}
     </text>
   );
@@ -178,9 +178,11 @@ export function DailySalesChart({ data, loading }: DailySalesChartProps) {
             radius={[4, 4, 0, 0]}
             maxBarSize={52}
             label={<BarLabel />}
+            isAnimationActive={false}
           />
 
           <Line
+            isAnimationActive={false}
             yAxisId="right"
             dataKey="cpa"
             stroke={LINE_COLOR}

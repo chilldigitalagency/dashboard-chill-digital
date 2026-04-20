@@ -119,7 +119,7 @@
     --secondary: oklch(0.22 0.01 264);
     --secondary-foreground: oklch(0.95 0 0);
     --muted: oklch(0.22 0.01 264);
-    --muted-foreground: oklch(0.60 0 0);
+    --muted-foreground: oklch(0.82 0 0);
     --accent: oklch(0.488 0.243 264.376 / 20%);
     --accent-foreground: oklch(0.75 0.15 264);
     --destructive: oklch(0.704 0.191 22.216);
@@ -165,4 +165,28 @@
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* ── Print / PDF export ────────────────────────────────────────────────────── */
+@media print {
+  /* Hide sidebar, interactive controls and chrome */
+  .print-hide { display: none !important; }
+
+  /* Reset layout: full width, no overflow clipping */
+  html, body { height: auto !important; overflow: visible !important; }
+  .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; }
+  main { overflow: visible !important; }
+
+  /* Background colors must print */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Tables: allow overflow to expand */
+  [class*="overflow-x"] { overflow: visible !important; }
+  table { width: 100% !important; table-layout: auto !important; }
+
+  /* Avoid breaking charts and cards across pages */
+  .rounded-xl { break-inside: avoid; }
+
+  /* Page margins */
+  @page { margin: 16mm 12mm; }
 }

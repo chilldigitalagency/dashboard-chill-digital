@@ -82,7 +82,7 @@ function RevenueBarLabel(props: { x?: number; y?: number; width?: number; height
   const label = "$" + new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 }).format(value);
   const cy = height < 22 ? y + height / 2 + 4 : y + 14;
   return (
-    <text x={x + width / 2} y={cy} textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize={10} fontWeight={600}>
+    <text x={x + width / 2} y={cy} textAnchor="middle" fill="#ffffff" fontSize={10} fontWeight={600} style={{ opacity: 0.9 }}>
       {label}
     </text>
   );
@@ -181,9 +181,11 @@ export function DailyRevenueChart({ data, loading }: DailyRevenueChartProps) {
             radius={[4, 4, 0, 0]}
             maxBarSize={52}
             label={<RevenueBarLabel />}
+            isAnimationActive={false}
           />
 
           <Line
+            isAnimationActive={false}
             yAxisId="right"
             dataKey="roas"
             stroke={LINE_COLOR}

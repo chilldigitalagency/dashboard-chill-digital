@@ -26,11 +26,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        userName={profile?.full_name ?? user.email ?? "Usuario"}
-        userEmail={user.email ?? ""}
-        isAdmin={profile?.role === "admin"}
-      />
+      <div className="print-hide">
+        <Sidebar
+          userName={profile?.full_name ?? user.email ?? "Usuario"}
+          userEmail={user.email ?? ""}
+          isAdmin={profile?.role === "admin"}
+        />
+      </div>
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>

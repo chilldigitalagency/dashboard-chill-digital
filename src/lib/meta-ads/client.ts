@@ -37,6 +37,9 @@ export interface MetaAdsInsights {
   messages: number;
   cost_per_message: number;
   ig_profile_visits: number;
+  landing_page_view: number;
+  add_to_cart: number;
+  initiate_checkout: number;
   dateStart?: string;
   dateStop?: string;
 }
@@ -123,7 +126,10 @@ export async function fetchMetaAds(
     const cost_per_message = findActionValue(row.cost_per_action_type, ["onsite_conversion.messaging_conversation_started_7d"]);
     const ig_profile_visits = parseFloat(row.instagram_profile_visits ?? "0") || 0;
 
-    return { spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks, messages, cost_per_message, ig_profile_visits };
+    const landing_page_view = findActionValue(row.actions, ["landing_page_view"]);
+    const add_to_cart = findActionValue(row.actions, ["add_to_cart"]);
+    const initiate_checkout = findActionValue(row.actions, ["initiate_checkout"]);
+    return { spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks, messages, cost_per_message, ig_profile_visits, landing_page_view, add_to_cart, initiate_checkout };
   } catch {
     return null;
   }
@@ -300,10 +306,14 @@ export async function fetchAccountInsights(
     const messages = findActionValue(row.actions, ["onsite_conversion.messaging_conversation_started_7d"]);
     const cost_per_message = findActionValue(row.cost_per_action_type, ["onsite_conversion.messaging_conversation_started_7d"]);
     const ig_profile_visits = parseFloat(row.instagram_profile_visits ?? "0") || 0;
+    const landing_page_view = findActionValue(row.actions, ["landing_page_view"]);
+    const add_to_cart = findActionValue(row.actions, ["add_to_cart"]);
+    const initiate_checkout = findActionValue(row.actions, ["initiate_checkout"]);
 
     return {
       spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks,
       messages, cost_per_message, ig_profile_visits,
+      landing_page_view, add_to_cart, initiate_checkout,
       dateStart: row.date_start,
       dateStop: row.date_stop,
     };

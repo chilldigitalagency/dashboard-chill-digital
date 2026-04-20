@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -20,6 +20,7 @@ import { DailySalesChart } from "@/components/charts/DailySalesChart";
 import { DailyRevenueChart } from "@/components/charts/DailyRevenueChart";
 import { DailyVisitsChart } from "@/components/charts/DailyVisitsChart";
 import { AdPreviewModal } from "@/components/ads/AdPreviewModal";
+import { ConversionFunnelChart } from "@/components/charts/ConversionFunnelChart";
 import type { DailyInsightsPoint } from "@/lib/meta-ads/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +46,9 @@ interface AccountMetrics {
   messages: number;
   cost_per_message: number;
   ig_profile_visits: number;
+  landing_page_view: number;
+  add_to_cart: number;
+  initiate_checkout: number;
 }
 
 interface CampaignInsights {
@@ -348,6 +352,8 @@ function getAdSortValue(ad: Ad, key: AdSortKey): number {
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
   const [dateSelection, setDateSelection] = useState<DateSelection>({ type: "preset", preset: "last_7d" });
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -378,6 +384,18 @@ export default function ClientDetailPage() {
 
   // Ad preview modal
   const [previewAd, setPreviewAd] = useState<{ id: string; name: string } | null>(null);
+
+  async function handleExportPdf() {
+    if (!reportRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const { exportToPdf } = await import("@/lib/utils/exportPdf");
+      const clientName = data?.name ?? "reporte";
+      await exportToPdf(reportRef.current, `${clientName}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleToggleCampaign(campaignId: string, currentStatus: string) {
     const newStatus = currentStatus === "ACTIVE" ? "PAUSED" : "ACTIVE";
@@ -502,6 +520,24 @@ export default function ClientDetailPage() {
     });
   }, [ads, svcAdSortKey, svcAdSortDir]);
 
+  const m = data?.accountMetrics;
+  const cmp = data?.comparisonMetrics;
+
+  const funnelData = useMemo(() => ({
+    current: {
+      landing_page_views: m?.landing_page_view ?? 0,
+      add_to_cart:        m?.add_to_cart ?? 0,
+      initiate_checkout:  m?.initiate_checkout ?? 0,
+      purchases:          m?.purchases ?? 0,
+    },
+    previous: {
+      landing_page_views: cmp?.landing_page_view ?? 0,
+      add_to_cart:        cmp?.add_to_cart ?? 0,
+      initiate_checkout:  cmp?.initiate_checkout ?? 0,
+      purchases:          cmp?.purchases ?? 0,
+    },
+  }), [m, cmp]);
+
   const fetchData = useCallback(
     async (sel: DateSelection) => {
       setLoading(true);
@@ -562,17 +598,15 @@ export default function ClientDetailPage() {
     fetchData(dateSelection);
   }, [dateSelection, fetchData]);
 
-  const m = data?.accountMetrics;
-  const cmp = data?.comparisonMetrics;
   const avgTicket = m && m.purchases > 0 ? m.revenue / m.purchases : 0;
   const avgTicketPrev = cmp && cmp.purchases > 0 ? cmp.revenue / cmp.purchases : 0;
 
   return (
-    <div className="px-8 py-8 max-w-7xl">
+    <div ref={reportRef} className="px-8 py-8 max-w-7xl">
       {/* 1. Header */}
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-start gap-4">
-          <Link href="/dashboard" className="mt-0.5 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+          <Link href="/dashboard" data-html2canvas-ignore className="print-hide mt-0.5 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
@@ -589,8 +623,20 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
-        {/* Selector de período */}
-        <DateRangePicker value={dateSelection} onChange={setDateSelection} />
+        {/* Controles superiores */}
+        <div className="flex items-center gap-2 print-hide" data-html2canvas-ignore>
+          <button
+            onClick={handleExportPdf}
+            disabled={exporting || loading}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <Download className="h-4 w-4" />}
+            PDF
+          </button>
+          <DateRangePicker value={dateSelection} onChange={setDateSelection} />
+        </div>
       </div>
 
       {/* Error */}
@@ -728,7 +774,7 @@ export default function ClientDetailPage() {
           <Table className="table-fixed" style={{ width: totalWidth }}>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border">
-                <TH colKey="camToggle" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.camToggle} onResizeStart={(e) => handleResizeStart(e, "camToggle")}>{""}</TH>
+                <TH colKey="camToggle" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.camToggle} onResizeStart={(e) => handleResizeStart(e, "camToggle")}><span className="print-hide">{""}</span></TH>
                 <TH colKey="estado" activeSortKey={sortKey} sortDir={sortDir} sticky width={colWidths.estado} onResizeStart={(e) => handleResizeStart(e, "estado")}>Estado</TH>
                 <TH colKey="name" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.name} onResizeStart={(e) => handleResizeStart(e, "name")}>Campaña</TH>
                 <TH colKey="entrega" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.entrega} onResizeStart={(e) => handleResizeStart(e, "entrega")}>Entrega</TH>
@@ -935,7 +981,7 @@ export default function ClientDetailPage() {
           <Table className="table-fixed" style={{ width: adTotalWidth }}>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border">
-                <TH colKey="adToggle" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adToggle} onResizeStart={(e) => adHandleResizeStart(e, "adToggle")}>{""}</TH>
+                <TH colKey="adToggle" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adToggle} onResizeStart={(e) => adHandleResizeStart(e, "adToggle")}><span className="print-hide">{""}</span></TH>
                 <TH colKey="adEstado" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adEstado} onResizeStart={(e) => adHandleResizeStart(e, "adEstado")}>Estado</TH>
                 <TH colKey="adName" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adName} onResizeStart={(e) => adHandleResizeStart(e, "adName")}>Anuncio</TH>
                 <TH colKey="adEntrega" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adEntrega} onResizeStart={(e) => adHandleResizeStart(e, "adEntrega")}>Entrega</TH>
@@ -1086,6 +1132,7 @@ export default function ClientDetailPage() {
           <DailySalesChart data={dailyData} loading={dailyLoading} />
           <DailyRevenueChart data={dailyData} loading={dailyLoading} />
           <DailyVisitsChart data={dailyData} loading={dailyLoading} />
+          <ConversionFunnelChart data={funnelData.current} previousData={funnelData.previous} loading={loading} />
         </div>
       )}
 
