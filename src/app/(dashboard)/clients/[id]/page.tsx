@@ -16,6 +16,7 @@ import { TH, useResizableCols } from "@/components/ui/resizable-table-head";
 import type { SortDir } from "@/components/ui/resizable-table-head";
 import { DateRangePicker } from "@/components/shared/DateRangePicker";
 import type { DateSelection } from "@/components/shared/DateRangePicker";
+import { DailySpendChart } from "@/components/charts/DailySpendChart";
 import { DailySalesChart } from "@/components/charts/DailySalesChart";
 import { DailyRevenueChart } from "@/components/charts/DailyRevenueChart";
 import { DailyVisitsChart } from "@/components/charts/DailyVisitsChart";
@@ -1129,6 +1130,7 @@ export default function ClientDetailPage() {
       {/* 6. Gráficos evolutivos diarios — solo ecommerce */}
       {data?.client_type !== "servicios" && (
         <div className="mt-8 mb-8 flex flex-col gap-6">
+          <DailySpendChart data={dailyData} loading={dailyLoading} />
           <DailySalesChart data={dailyData} loading={dailyLoading} />
           <DailyRevenueChart data={dailyData} loading={dailyLoading} />
           <DailyVisitsChart data={dailyData} loading={dailyLoading} />
