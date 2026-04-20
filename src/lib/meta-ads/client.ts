@@ -34,6 +34,11 @@ export interface MetaAdsInsights {
   impressions: number;
   frequency: number;
   clicks: number;
+  messages: number;
+  cost_per_message: number;
+  ig_profile_visits: number;
+  dateStart?: string;
+  dateStop?: string;
 }
 
 interface MetaAction {
@@ -51,6 +56,9 @@ interface MetaInsightsData {
   cpm?: string;
   cpp?: string;
   outbound_clicks_ctr?: string;
+  instagram_profile_visits?: string;
+  date_start?: string;
+  date_stop?: string;
   actions?: MetaAction[];
   action_values?: MetaAction[];
   cost_per_action_type?: MetaAction[];
@@ -78,7 +86,7 @@ export async function fetchMetaAds(
   datePreset: string
 ): Promise<MetaAdsInsights | null> {
   const params = new URLSearchParams({
-    fields: "spend,impressions,reach,frequency,clicks,ctr,cpm,cpp,actions,action_values",
+    fields: "spend,impressions,reach,frequency,clicks,ctr,cpm,cpp,actions,action_values,cost_per_action_type,instagram_profile_visits",
     date_preset: datePreset,
     level: "account",
     access_token: accessToken,
@@ -111,7 +119,11 @@ export async function fetchMetaAds(
     const roas = spend > 0 ? revenue / spend : 0;
     const cpa = purchases > 0 ? spend / purchases : 0;
 
-    return { spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks };
+    const messages = findActionValue(row.actions, ["onsite_conversion.messaging_conversation_started_7d"]);
+    const cost_per_message = findActionValue(row.cost_per_action_type, ["onsite_conversion.messaging_conversation_started_7d"]);
+    const ig_profile_visits = parseFloat(row.instagram_profile_visits ?? "0") || 0;
+
+    return { spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks, messages, cost_per_message, ig_profile_visits };
   } catch {
     return null;
   }
@@ -128,7 +140,9 @@ export interface CampaignInsights {
   ctr: number;
   cpm: number;
   reach: number;
+  impressions: number;
   frequency: number;
+  clicks: number;
   add_to_cart: number;
   cost_per_add_to_cart: number;
   initiate_checkout: number;
@@ -137,6 +151,9 @@ export interface CampaignInsights {
   cost_per_landing_page_view: number;
   outbound_clicks: number;
   outbound_clicks_ctr: number;
+  messages: number;
+  cost_per_message: number;
+  ig_profile_visits: number;
 }
 
 export interface Campaign {
@@ -196,7 +213,9 @@ function parseInsightsRow(row: MetaInsightsData): CampaignInsights {
   const ctr = parseFloat(row.ctr ?? "0") || 0;
   const cpm = parseFloat(row.cpm ?? "0") || 0;
   const reach = parseFloat(row.reach ?? "0") || 0;
+  const impressions = parseFloat(row.impressions ?? "0") || 0;
   const frequency = parseFloat(row.frequency ?? "0") || 0;
+  const clicks = parseFloat(row.clicks ?? "0") || 0;
   const purchases = findActionValue(row.actions, PURCHASE_TYPES);
   const revenue = findActionValue(row.action_values, PURCHASE_TYPES);
   const roas = spend > 0 ? revenue / spend : 0;
@@ -213,12 +232,17 @@ function parseInsightsRow(row: MetaInsightsData): CampaignInsights {
   const outbound_clicks = findActionValue(row.outbound_clicks, ["outbound_click"]);
   const outbound_clicks_ctr = parseFloat(row.outbound_clicks_ctr ?? "0") || 0;
 
+  const messages = findActionValue(row.actions, ["onsite_conversion.messaging_conversation_started_7d"]);
+  const cost_per_message = findActionValue(row.cost_per_action_type, ["onsite_conversion.messaging_conversation_started_7d"]);
+  const ig_profile_visits = parseFloat(row.instagram_profile_visits ?? "0") || 0;
+
   return {
-    spend, purchases, revenue, roas, cpa, ctr, cpm, reach, frequency,
+    spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks,
     add_to_cart, cost_per_add_to_cart,
     initiate_checkout, cost_per_initiate_checkout,
     landing_page_view, cost_per_landing_page_view,
     outbound_clicks, outbound_clicks_ctr,
+    messages, cost_per_message, ig_profile_visits,
   };
 }
 
@@ -244,7 +268,7 @@ export async function fetchAccountInsights(
   dateFilter: DateFilter
 ): Promise<MetaAdsInsights | null> {
   const params = new URLSearchParams({
-    fields: "spend,impressions,reach,frequency,clicks,ctr,cpm,cpp,actions,action_values,cost_per_action_type",
+    fields: "spend,impressions,reach,frequency,clicks,ctr,cpm,cpp,actions,action_values,cost_per_action_type,instagram_profile_visits,date_start,date_stop",
     level: "account",
     access_token: accessToken,
   });
@@ -273,7 +297,16 @@ export async function fetchAccountInsights(
     const roas = spend > 0 ? revenue / spend : 0;
     const cpa = purchases > 0 ? spend / purchases : 0;
 
-    return { spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks };
+    const messages = findActionValue(row.actions, ["onsite_conversion.messaging_conversation_started_7d"]);
+    const cost_per_message = findActionValue(row.cost_per_action_type, ["onsite_conversion.messaging_conversation_started_7d"]);
+    const ig_profile_visits = parseFloat(row.instagram_profile_visits ?? "0") || 0;
+
+    return {
+      spend, purchases, revenue, roas, cpa, ctr, cpm, reach, impressions, frequency, clicks,
+      messages, cost_per_message, ig_profile_visits,
+      dateStart: row.date_start,
+      dateStop: row.date_stop,
+    };
   } catch {
     return null;
   }
@@ -300,10 +333,10 @@ export async function fetchCampaigns(
   accessToken: string,
   dateFilter: DateFilter
 ): Promise<Campaign[]> {
-  const insightsFields = `insights.${insightsDateParam(dateFilter)}{spend,reach,frequency,actions,action_values,ctr,cpm,cost_per_action_type,outbound_clicks,outbound_clicks_ctr}`;
+  const insightsFields = `insights.${insightsDateParam(dateFilter)}{spend,impressions,reach,frequency,clicks,actions,action_values,ctr,cpm,cost_per_action_type,outbound_clicks,outbound_clicks_ctr,instagram_profile_visits}`;
   const params = new URLSearchParams({
     fields: `id,name,status,effective_status,daily_budget,lifetime_budget,${insightsFields}`,
-    effective_status: '["ACTIVE"]',
+    effective_status: '["ACTIVE","PAUSED"]',
     access_token: accessToken,
     limit: "100",
   });
@@ -323,7 +356,8 @@ export async function fetchCampaigns(
           : null,
         insights: row ? parseInsightsRow(row) : null,
       };
-    });
+    })
+    .filter((c) => c.status === "ACTIVE" || (c.insights !== null && c.insights.spend > 0));
 }
 
 // ─── Ads ──────────────────────────────────────────────────────────────────────
@@ -333,17 +367,18 @@ export async function fetchAds(
   accessToken: string,
   dateFilter: DateFilter
 ): Promise<Ad[]> {
-  const insightsFields = `insights.${insightsDateParam(dateFilter)}{spend,reach,frequency,actions,action_values,ctr,cpm,cost_per_action_type,outbound_clicks,outbound_clicks_ctr}`;
+  const insightsFields = `insights.${insightsDateParam(dateFilter)}{spend,impressions,reach,frequency,clicks,actions,action_values,ctr,cpm,cost_per_action_type,outbound_clicks,outbound_clicks_ctr,instagram_profile_visits}`;
   const params = new URLSearchParams({
     fields: `id,name,status,effective_status,creative{thumbnail_url},${insightsFields}`,
-    effective_status: '["ACTIVE"]',
+    effective_status: '["ACTIVE","PAUSED"]',
     access_token: accessToken,
     limit: "50",
   });
   const firstUrl = `${META_API_BASE}/${accountId}/ads?${params.toString()}`;
   const ads = await metaFetchAll<RawAd>(firstUrl);
 
-  return ads.map((ad) => {
+  return ads
+    .map((ad) => {
       const row = ad.insights?.data?.[0];
       return {
         id: ad.id,
@@ -352,5 +387,60 @@ export async function fetchAds(
         thumbnail_url: ad.creative?.thumbnail_url ?? null,
         insights: row ? parseInsightsRow(row) : null,
       };
+    })
+    .filter((ad) => ad.status === "ACTIVE" || (ad.insights !== null && ad.insights.spend > 0));
+}
+
+// ─── Daily insights ───────────────────────────────────────────────────────────
+
+export interface DailyInsightsPoint {
+  date: string;
+  purchases: number;
+  spend: number;
+  cpa: number;
+  revenue: number;
+  roas: number;
+  landing_page_views: number;
+  cost_per_landing_page_view: number;
+}
+
+interface RawDailyRow extends MetaInsightsData {
+  date_start?: string;
+}
+
+export async function fetchDailyInsights(
+  accountId: string,
+  accessToken: string,
+  dateFilter: DateFilter
+): Promise<DailyInsightsPoint[]> {
+  const params = new URLSearchParams({
+    fields: "spend,actions,action_values,cost_per_action_type,outbound_clicks",
+    level: "account",
+    time_increment: "1",
+    access_token: accessToken,
+  });
+  applyDateFilter(params, dateFilter);
+  const url = `${META_API_BASE}/${accountId}/insights?${params.toString()}`;
+
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    const json = (await res.json()) as { data?: RawDailyRow[]; error?: { message: string } };
+    if (!res.ok || json.error) {
+      console.error("[Meta Ads] daily error:", json.error?.message ?? res.statusText);
+      return [];
+    }
+    return (json.data ?? []).map((row) => {
+      const spend = parseFloat(row.spend ?? "0") || 0;
+      const purchases = findActionValue(row.actions, PURCHASE_TYPES);
+      const revenue = findActionValue(row.action_values, PURCHASE_TYPES);
+      const cpa = findActionValue(row.cost_per_action_type, PURCHASE_TYPES);
+      const computedCpa = cpa > 0 ? cpa : purchases > 0 ? spend / purchases : 0;
+      const roas = spend > 0 ? revenue / spend : 0;
+      const landing_page_views = findActionValue(row.actions, ["landing_page_view"]);
+      const cost_per_landing_page_view = findActionValue(row.cost_per_action_type, ["landing_page_view"]);
+      return { date: row.date_start ?? "", purchases, spend, cpa: computedCpa, revenue, roas, landing_page_views, cost_per_landing_page_view };
     });
+  } catch {
+    return [];
+  }
 }

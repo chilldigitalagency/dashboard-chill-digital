@@ -1,53 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { TrendingUp, ShoppingCart, DollarSign, BarChart2, ExternalLink } from "lucide-react";
-import { TH, useResizableCols } from "@/components/ui/resizable-table-head";
-import type { SortDir } from "@/components/ui/resizable-table-head";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ClientMetrics {
-  spend: number;
-  purchases: number;
-  revenue: number;
-  roas: number;
-  cpa: number;
-  ctr: number;
-  cpm: number;
-  reach: number;
-  impressions: number;
-  frequency: number;
-  clicks: number;
-}
-
-interface ClientRow {
-  id: string;
-  name: string;
-  meta_account_id: string;
-  metrics: ClientMetrics | null;
-  thresholds: { roas_min: number; cpa_max: number; sales_min: number } | null;
-}
+import { ExternalLink, TrendingUp } from "lucide-react";
+import type { DashboardClientRow, DashboardGoals, DashboardProjected } from "@/app/api/dashboard/route";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const DATE_PRESETS = [
-  { label: "Últimos 7 días", value: "last_7d" },
-  { label: "Últimos 14 días", value: "last_14d" },
-  { label: "Últimos 30 días", value: "last_30d" },
-  { label: "Mes actual", value: "this_month" },
-] as const;
-
-type DatePreset = (typeof DATE_PRESETS)[number]["value"];
+const MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
 
 function fCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -62,127 +25,179 @@ function fNum(value: number, decimals = 2) {
   return value.toFixed(decimals);
 }
 
-function calcStatus(metrics: ClientMetrics, thresholds: ClientRow["thresholds"]) {
-  if (!thresholds) return "seguimiento";
-  const { roas_min, cpa_max, sales_min } = thresholds;
-  const roasOk = metrics.roas >= roas_min;
-  const cpaOk = cpa_max === 0 || metrics.cpa <= cpa_max;
-  const purchasesOk = metrics.purchases >= sales_min;
-  if (roasOk && cpaOk && purchasesOk) return "excelente";
-  if (!roasOk && !cpaOk) return "apagar";
-  return "seguimiento";
+// For each metric: true = higher is better, false = lower is better
+type MetricKey = "inversion" | "compras" | "cpa" | "roas" | "facturacion";
+
+const HIGHER_IS_BETTER: Record<MetricKey, boolean> = {
+  inversion: true,
+  compras: true,
+  cpa: false,
+  roas: true,
+  facturacion: true,
+};
+
+function isOnTrack(key: MetricKey, projected: number, goal: number): boolean {
+  if (HIGHER_IS_BETTER[key]) return projected >= goal;
+  return projected <= goal;
 }
 
-function StatusBadge({ metrics, thresholds }: { metrics: ClientMetrics | null; thresholds: ClientRow["thresholds"] }) {
-  if (!metrics) {
-    return <Badge variant="outline">Sin datos</Badge>;
-  }
-  const status = calcStatus(metrics, thresholds);
-  if (status === "excelente") {
-    return (
-      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/15">
-        Gran rendimiento
-      </Badge>
-    );
-  }
-  if (status === "apagar") {
-    return <Badge variant="destructive">Apagar</Badge>;
-  }
-  return <Badge variant="secondary">Seguimiento</Badge>;
+// ─── Metric row ───────────────────────────────────────────────────────────────
+
+const METRICS: { key: MetricKey; label: string; format: (v: number) => string }[] = [
+  { key: "inversion",   label: "Inversión",    format: fCurrency },
+  { key: "compras",     label: "Compras",      format: v => String(Math.round(v)) },
+  { key: "cpa",         label: "CPA",          format: fCurrency },
+  { key: "roas",        label: "ROAS",         format: v => `${fNum(v)}x` },
+  { key: "facturacion", label: "Facturación",  format: fCurrency },
+];
+
+interface MetricRowProps {
+  goals: DashboardGoals | null;
+  projected: DashboardProjected;
+}
+
+function MetricRows({ goals, projected }: MetricRowProps) {
+  return (
+    <div className="grid grid-cols-5 divide-x divide-border">
+      {METRICS.map(({ key, format, label }) => {
+        const goalRaw = goals?.[key as keyof DashboardGoals] as number | null | undefined;
+        const projRaw = projected[key as keyof DashboardProjected];
+        const hasGoal = goalRaw != null && goalRaw > 0;
+        const onTrack = hasGoal ? isOnTrack(key, projRaw, goalRaw!) : null;
+
+        const projTextStyle =
+          onTrack === null
+            ? "text-foreground"
+            : onTrack
+            ? "text-emerald-400"
+            : "text-red-400";
+
+        const projBgStyle =
+          onTrack === null
+            ? ""
+            : onTrack
+            ? "bg-emerald-500/5"
+            : "bg-red-500/5";
+
+        return (
+          <div key={key} className="flex flex-col">
+            {/* Column header */}
+            <div className="px-6 pt-5 pb-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {label}
+              </span>
+            </div>
+
+            {/* Goal */}
+            <div className="px-6 pb-4 border-b border-border">
+              <p className="text-[11px] text-muted-foreground/60 mb-1 uppercase tracking-wide font-medium">
+                Objetivo
+              </p>
+              <p className="text-lg font-semibold text-muted-foreground">
+                {hasGoal ? format(goalRaw!) : "—"}
+              </p>
+            </div>
+
+            {/* Projected */}
+            <div className={`px-6 py-4 flex-1 ${projBgStyle}`}>
+              <p className="text-[11px] text-muted-foreground/60 mb-1 uppercase tracking-wide font-medium">
+                Proyectado
+              </p>
+              <p className={`text-xl font-bold ${projTextStyle}`}>
+                {format(projRaw)}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Client card ──────────────────────────────────────────────────────────────
+
+function ClientCard({ client }: { client: DashboardClientRow }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+      {/* Card header */}
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500/10">
+            <TrendingUp className="h-4 w-4 text-brand-400" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">{client.name}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {MONTH_NAMES[client.month - 1]} {client.year}
+            </p>
+          </div>
+        </div>
+        <Link
+          href={`/clients/${client.id}`}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-border"
+        >
+          Ver detalle
+          <ExternalLink className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {/* Metrics */}
+      <div className="border-t border-border">
+        {client.projected === null ? (
+          <div className="text-center py-10 text-sm text-muted-foreground">
+            Sin datos de Meta este mes.
+          </div>
+        ) : (
+          <MetricRows goals={client.goals} projected={client.projected} />
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-function SkeletonCard() {
+function SkeletonClientCard() {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 animate-pulse">
-      <div className="h-4 w-32 bg-muted rounded mb-4" />
-      <div className="h-7 w-24 bg-muted rounded" />
-    </div>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <TableRow>
-      {[...Array(7)].map((_, i) => (
-        <TableCell key={i}>
-          <div className="h-4 bg-muted rounded animate-pulse w-20" />
-        </TableCell>
-      ))}
-    </TableRow>
-  );
-}
-
-// ─── Summary cards ────────────────────────────────────────────────────────────
-
-interface SummaryCardProps {
-  label: string;
-  value: string;
-  icon: React.ElementType;
-}
-
-function SummaryCard({ label, value, icon: Icon }: SummaryCardProps) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center gap-2 text-muted-foreground mb-3">
-        <Icon className="h-4 w-4" />
-        <span className="text-sm font-medium">{label}</span>
+    <div className="rounded-2xl border border-border bg-card overflow-hidden animate-pulse">
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-muted" />
+          <div className="space-y-1.5">
+            <div className="h-4 w-32 bg-muted rounded" />
+            <div className="h-3 w-20 bg-muted rounded" />
+          </div>
+        </div>
+        <div className="h-7 w-24 bg-muted rounded-lg" />
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <div className="border-t border-border grid grid-cols-5 divide-x divide-border">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="px-6 py-5 space-y-3">
+            <div className="h-3 w-14 bg-muted rounded" />
+            <div className="h-5 w-20 bg-muted rounded" />
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="h-3 w-14 bg-muted rounded" />
+              <div className="h-6 w-24 bg-muted rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
-}
-
-// ─── Table sort & resize ──────────────────────────────────────────────────────
-
-type DashboardSortKey = "spend" | "roas" | "cpa" | "purchases";
-
-const COL_WIDTHS: Record<string, number> = {
-  cliente: 250, spend: 160, roas: 140, cpa: 140, purchases: 140, estado: 160, acciones: 140,
-};
-
-function getSortValue(client: ClientRow, key: DashboardSortKey): number {
-  const m = client.metrics;
-  if (!m) return -Infinity;
-  return m[key] ?? 0;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [datePreset, setDatePreset] = useState<DatePreset>("last_7d");
-  const [clients, setClients] = useState<ClientRow[]>([]);
+  const [clients, setClients] = useState<DashboardClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<DashboardSortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const { colWidths, handleResizeStart, totalWidth } = useResizableCols(COL_WIDTHS);
 
-  function handleSort(key: DashboardSortKey) {
-    if (sortKey === key) {
-      if (sortDir === "desc") setSortDir("asc");
-      else { setSortKey(null); setSortDir("desc"); }
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  }
-
-  const sortedClients = useMemo(() => {
-    if (!sortKey) return clients;
-    return [...clients].sort((a, b) => {
-      const va = getSortValue(a, sortKey);
-      const vb = getSortValue(b, sortKey);
-      return sortDir === "desc" ? vb - va : va - vb;
-    });
-  }, [clients, sortKey, sortDir]);
-
-  const fetchData = useCallback(async (preset: DatePreset) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meta/accounts?datePreset=${preset}`);
+      const res = await fetch("/api/dashboard");
       if (!res.ok) throw new Error("Error al cargar los datos.");
       const data = await res.json();
       setClients(data);
@@ -194,137 +209,47 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetchData(datePreset);
-  }, [datePreset, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
-  // Summary totals
-  const totals = clients.reduce(
-    (acc, client) => {
-      if (!client.metrics) return acc;
-      acc.spend += client.metrics.spend;
-      acc.purchases += client.metrics.purchases;
-      acc.revenue += client.metrics.revenue;
-      return acc;
-    },
-    { spend: 0, purchases: 0, revenue: 0 }
-  );
-  const avgRoas = totals.spend > 0 ? totals.revenue / totals.spend : 0;
-  const avgCpa = totals.purchases > 0 ? totals.spend / totals.purchases : 0;
+  const now = new Date();
+  const currentMonthLabel = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
 
   return (
-    <div className="px-8 py-8 max-w-7xl">
+    <div className="px-8 py-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Vista general de todos los clientes</p>
-        </div>
-
-        {/* Date preset selector */}
-        <div className="flex items-center gap-1 bg-muted/50 border border-border rounded-lg p-1">
-          {DATE_PRESETS.map((preset) => (
-            <button
-              key={preset.value}
-              onClick={() => setDatePreset(preset.value)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors cursor-pointer ${
-                datePreset === preset.value
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Proyección mensual · {currentMonthLabel}
+        </p>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : (
-          <>
-            <SummaryCard label="Total invertido" value={fCurrency(totals.spend)} icon={DollarSign} />
-            <SummaryCard label="ROAS promedio" value={`${fNum(avgRoas)}x`} icon={TrendingUp} />
-            <SummaryCard label="Compras totales" value={String(Math.round(totals.purchases))} icon={ShoppingCart} />
-            <SummaryCard label="CPA promedio" value={avgCpa > 0 ? fCurrency(avgCpa) : "—"} icon={BarChart2} />
-          </>
-        )}
-      </div>
-
-      {/* Error state */}
+      {/* Error */}
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive px-4 py-3 text-sm mb-6">
           {error}
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <Table className="table-fixed" style={{ width: totalWidth }}>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent border-border">
-              <TH colKey="cliente" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.cliente} onResizeStart={(e) => handleResizeStart(e, "cliente")}>Cliente</TH>
-              <TH colKey="spend" activeSortKey={sortKey} sortDir={sortDir} sortable width={colWidths.spend} onSort={() => handleSort("spend")} onResizeStart={(e) => handleResizeStart(e, "spend")}>Inversión</TH>
-              <TH colKey="roas" activeSortKey={sortKey} sortDir={sortDir} sortable width={colWidths.roas} onSort={() => handleSort("roas")} onResizeStart={(e) => handleResizeStart(e, "roas")}>ROAS</TH>
-              <TH colKey="cpa" activeSortKey={sortKey} sortDir={sortDir} sortable width={colWidths.cpa} onSort={() => handleSort("cpa")} onResizeStart={(e) => handleResizeStart(e, "cpa")}>CPA</TH>
-              <TH colKey="purchases" activeSortKey={sortKey} sortDir={sortDir} sortable width={colWidths.purchases} onSort={() => handleSort("purchases")} onResizeStart={(e) => handleResizeStart(e, "purchases")}>Compras</TH>
-              <TH colKey="estado" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.estado} onResizeStart={(e) => handleResizeStart(e, "estado")}>Estado</TH>
-              <TH colKey="acciones" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.acciones} onResizeStart={(e) => handleResizeStart(e, "acciones")}>Acciones</TH>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <>
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
-              </>
-            ) : sortedClients.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                  No hay clientes asignados.
-                </TableCell>
-              </TableRow>
-            ) : (
-              sortedClients.map((client) => (
-                <TableRow key={client.id} className="border-border">
-                  <TableCell className="font-medium text-foreground">
-                    {client.name}
-                  </TableCell>
-                  <TableCell className="text-right text-foreground tabular-nums">
-                    {client.metrics ? fCurrency(client.metrics.spend) : "—"}
-                  </TableCell>
-                  <TableCell className="text-right text-foreground tabular-nums">
-                    {client.metrics ? `${fNum(client.metrics.roas)}x` : "—"}
-                  </TableCell>
-                  <TableCell className="text-right text-foreground tabular-nums">
-                    {client.metrics && client.metrics.cpa > 0
-                      ? fCurrency(client.metrics.cpa)
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-right text-foreground tabular-nums">
-                    {client.metrics ? Math.round(client.metrics.purchases) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge metrics={client.metrics} thresholds={client.thresholds} />
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                      Ver detalle
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {/* Client cards */}
+      <div className="space-y-6">
+        {loading ? (
+          <>
+            <SkeletonClientCard />
+            <SkeletonClientCard />
+          </>
+        ) : clients.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
+            <p className="text-muted-foreground text-sm">
+              No hay clientes ecommerce asignados.
+            </p>
+          </div>
+        ) : (
+          clients.map((client) => (
+            <ClientCard key={client.id} client={client} />
+          ))
+        )}
       </div>
     </div>
   );

@@ -45,6 +45,7 @@ interface THProps {
   sortDir: SortDir;
   sortable?: boolean;
   sticky?: boolean;
+  stickyLeft?: number;
   width: number;
   onSort?: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
@@ -57,6 +58,7 @@ export function TH({
   sortDir,
   sortable,
   sticky,
+  stickyLeft,
   width,
   onSort,
   onResizeStart,
@@ -66,10 +68,10 @@ export function TH({
 
   return (
     <TableHead
-      style={{ width, position: "relative", paddingLeft: 0, paddingRight: 0 }}
+      style={{ width, position: "relative", paddingLeft: 0, paddingRight: 0, ...(sticky ? { left: stickyLeft ?? 0 } : {}) }}
       className={cn(
         "text-muted-foreground font-medium",
-        sticky && "sticky left-0 z-10 bg-card",
+        sticky && "sticky z-10 bg-card",
         sortable && "cursor-pointer select-none"
       )}
       onClick={sortable && onSort ? onSort : undefined}

@@ -29,107 +29,191 @@ const VALID_PRESETS = [
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+function fmt(d: Date) { return d.toISOString().split("T")[0]; }
+
+function getMonthComparisonFilter(dateFilter: DateFilter): DateFilter | null {
+  if (dateFilter.type !== "preset") return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (dateFilter.preset === "this_month") {
+    const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
+    const prevMonth = today.getMonth() === 0 ? 11 : today.getMonth() - 1;
+    return {
+      type: "custom",
+      since: fmt(new Date(prevYear, prevMonth, 1)),
+      until: fmt(new Date(prevYear, prevMonth, today.getDate())),
+    };
+  }
+  if (dateFilter.preset === "last_month") {
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const prevYear = m <= 1 ? y - 1 : y;
+    const prevMonth = m <= 1 ? m + 10 : m - 2;
+    return {
+      type: "custom",
+      since: fmt(new Date(prevYear, prevMonth, 1)),
+      until: fmt(new Date(prevYear, prevMonth + 1, 0)),
+    };
+  }
+  return null;
+}
+
+function comparisonFromDates(dateStart: string, dateStop: string): DateFilter {
+  const since = new Date(dateStart + "T00:00:00");
+  const until = new Date(dateStop + "T00:00:00");
+  const days = Math.round((until.getTime() - since.getTime()) / 86400000) + 1;
+  const prevUntil = new Date(since); prevUntil.setDate(prevUntil.getDate() - 1);
+  const prevSince = new Date(prevUntil); prevSince.setDate(prevSince.getDate() - days + 1);
+  return { type: "custom", since: fmt(prevSince), until: fmt(prevUntil) };
+}
+
+function estimateComparisonFilter(dateFilter: DateFilter): DateFilter {
+  if (dateFilter.type === "custom") {
+    return comparisonFromDates(dateFilter.since, dateFilter.until);
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const days =
+    dateFilter.preset === "last_7d"  ? 7  :
+    dateFilter.preset === "last_14d" ? 14 :
+    dateFilter.preset === "last_30d" ? 30 : 7;
+  const prevUntil = new Date(yesterday); prevUntil.setDate(prevUntil.getDate() - days);
+  const prevSince = new Date(prevUntil); prevSince.setDate(prevSince.getDate() - days + 1);
+  return { type: "custom", since: fmt(prevSince), until: fmt(prevUntil) };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { accountId: string } }
 ) {
   try {
-  // 1. Verificar sesión
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    const { accountId } = params;
+    const sp = request.nextUrl.searchParams;
+    const since = sp.get("since");
+    const until = sp.get("until");
+    const presetParam = sp.get("datePreset") ?? "last_7d";
+    const type = sp.get("type") ?? "full"; // "overview" | "breakdown" | "full"
 
-  const { accountId } = params;
-  const sp = request.nextUrl.searchParams;
-  const since = sp.get("since");
-  const until = sp.get("until");
-  const presetParam = sp.get("datePreset") ?? "last_7d";
-
-  let dateFilter: DateFilter;
-
-  if (since && until) {
-    if (!ISO_DATE.test(since) || !ISO_DATE.test(until)) {
-      return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+    let dateFilter: DateFilter;
+    if (since && until) {
+      if (!ISO_DATE.test(since) || !ISO_DATE.test(until)) {
+        return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+      }
+      dateFilter = { type: "custom", since, until };
+    } else {
+      if (!VALID_PRESETS.includes(presetParam)) {
+        return NextResponse.json({ error: "Invalid datePreset" }, { status: 400 });
+      }
+      dateFilter = { type: "preset", preset: presetParam };
     }
-    dateFilter = { type: "custom", since, until };
-  } else {
-    if (!VALID_PRESETS.includes(presetParam)) {
-      return NextResponse.json({ error: "Invalid datePreset" }, { status: 400 });
+
+    const admin = createAdminClient();
+
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+    const isAdmin = profile?.role === "admin";
+
+    if (!isAdmin) {
+      const { data: access } = await admin
+        .from("client_user_access").select("client_id")
+        .eq("user_id", user.id).eq("client_id", accountId).single();
+      if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    dateFilter = { type: "preset", preset: presetParam };
-  }
 
-  const admin = createAdminClient();
-
-  // 2. Verificar que el usuario tiene acceso a este cliente
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const isAdmin = profile?.role === "admin";
-
-  if (!isAdmin) {
-    const { data: access } = await admin
-      .from("client_user_access")
-      .select("client_id")
-      .eq("user_id", user.id)
-      .eq("client_id", accountId)
+    const { data: client, error: clientError } = await admin
+      .from("clients")
+      .select("id, name, meta_account_id, meta_access_token, client_type, client_thresholds(roas_min, cpa_max, sales_min)")
+      .eq("id", accountId)
       .single();
 
-    if (!access) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (clientError || !client) {
+      return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
     }
-  }
 
-  // 3. Obtener datos del cliente (meta_account_id + token)
-  const { data: client, error: clientError } = await admin
-    .from("clients")
-    .select("id, name, meta_account_id, meta_access_token, client_thresholds(roas_min, cpa_max, sales_min)")
-    .eq("id", accountId)
-    .single();
+    const { meta_account_id, meta_access_token } = client;
+    const threshold = (client.client_thresholds as { roas_min: number; cpa_max: number; sales_min: number }[])?.[0] ?? null;
+    const dateKey = since ? `${since}:${until}` : presetParam;
 
-  if (clientError || !client) {
-    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
-  }
+    // ── Overview: only account metrics (fast) ────────────────────────────────
+    if (type === "overview") {
+      const cacheKey = `${accountId}:overview:${dateKey}`;
+      type OvPayload = {
+        accountMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
+        comparisonMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
+      };
+      let payload = getCached<OvPayload>(cacheKey);
+      if (!payload) {
+        const comparisonFilter = getMonthComparisonFilter(dateFilter) ?? estimateComparisonFilter(dateFilter);
+        const [accountMetrics, comparisonMetrics] = await Promise.all([
+          fetchAccountInsights(meta_account_id, meta_access_token, dateFilter),
+          fetchAccountInsights(meta_account_id, meta_access_token, comparisonFilter),
+        ]);
+        payload = { accountMetrics, comparisonMetrics };
+        setCached(cacheKey, payload);
+      }
+      return NextResponse.json({
+        id: client.id,
+        name: client.name,
+        meta_account_id,
+        client_type: (client.client_type as "ecommerce" | "servicios") ?? "ecommerce",
+        thresholds: threshold,
+        accountMetrics: payload.accountMetrics,
+        comparisonMetrics: payload.comparisonMetrics,
+      });
+    }
 
-  const { meta_account_id, meta_access_token } = client;
+    // ── Breakdown: only campaigns + ads ──────────────────────────────────────
+    if (type === "breakdown") {
+      const cacheKey = `${accountId}:breakdown:${dateKey}`;
+      type BdPayload = {
+        campaigns: Awaited<ReturnType<typeof fetchCampaigns>>;
+        ads: Awaited<ReturnType<typeof fetchAds>>;
+      };
+      let payload = getCached<BdPayload>(cacheKey);
+      if (!payload) {
+        const [campaigns, ads] = await Promise.all([
+          fetchCampaigns(meta_account_id, meta_access_token, dateFilter),
+          fetchAds(meta_account_id, meta_access_token, dateFilter),
+        ]);
+        payload = { campaigns, ads };
+        setCached(cacheKey, payload);
+      }
+      return NextResponse.json({ campaigns: payload.campaigns, ads: payload.ads });
+    }
 
-  // 4. Llamar a Meta API en paralelo (con caché de 5 min)
-  const cacheKey = `${accountId}:${since ?? presetParam}:${until ?? ""}`;
-  type MetaPayload = { accountMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>; campaigns: Awaited<ReturnType<typeof fetchCampaigns>>; ads: Awaited<ReturnType<typeof fetchAds>> };
-  let metaPayload = getCached<MetaPayload>(cacheKey);
+    // ── Full (backward compat) ────────────────────────────────────────────────
+    const cacheKey = `${accountId}:full:${dateKey}`;
+    type FullPayload = {
+      accountMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
+      comparisonMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
+      campaigns: Awaited<ReturnType<typeof fetchCampaigns>>;
+      ads: Awaited<ReturnType<typeof fetchAds>>;
+    };
+    let metaPayload = getCached<FullPayload>(cacheKey);
+    if (!metaPayload) {
+      const comparisonFilter = getMonthComparisonFilter(dateFilter) ?? estimateComparisonFilter(dateFilter);
+      const [accountMetrics, comparisonMetrics, campaigns, ads] = await Promise.all([
+        fetchAccountInsights(meta_account_id, meta_access_token, dateFilter),
+        fetchAccountInsights(meta_account_id, meta_access_token, comparisonFilter),
+        fetchCampaigns(meta_account_id, meta_access_token, dateFilter),
+        fetchAds(meta_account_id, meta_access_token, dateFilter),
+      ]);
+      metaPayload = { accountMetrics, comparisonMetrics, campaigns, ads };
+      setCached(cacheKey, metaPayload);
+    }
 
-  if (!metaPayload) {
-    const [accountMetrics, campaigns, ads] = await Promise.all([
-      fetchAccountInsights(meta_account_id, meta_access_token, dateFilter),
-      fetchCampaigns(meta_account_id, meta_access_token, dateFilter),
-      fetchAds(meta_account_id, meta_access_token, dateFilter),
-    ]);
-    metaPayload = { accountMetrics, campaigns, ads };
-    setCached(cacheKey, metaPayload);
-  }
-
-  const { accountMetrics, campaigns, ads } = metaPayload;
-
-  // 5. Retornar datos consolidados
-  const threshold = (client.client_thresholds as { roas_min: number; cpa_max: number; sales_min: number }[])?.[0] ?? null;
-
-  return NextResponse.json({
-    id: client.id,
-    name: client.name,
-    meta_account_id,
-    thresholds: threshold,
-    accountMetrics,
-    campaigns,
-    ads,
-  });
+    return NextResponse.json({
+      id: client.id,
+      name: client.name,
+      meta_account_id,
+      client_type: (client.client_type as "ecommerce" | "servicios") ?? "ecommerce",
+      thresholds: threshold,
+      ...metaPayload,
+    });
   } catch (err) {
     console.error("[API /meta/[accountId]]", err);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });

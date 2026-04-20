@@ -15,9 +15,13 @@ CREATE TABLE IF NOT EXISTS public.clients (
   slug             text          NOT NULL UNIQUE,
   meta_account_id  text          NOT NULL,
   meta_access_token text         NOT NULL,
+  client_type      text          NOT NULL DEFAULT 'ecommerce' CHECK (client_type IN ('ecommerce', 'servicios')),
   active           boolean       NOT NULL DEFAULT true,
   created_at       timestamptz   NOT NULL DEFAULT now()
 );
+
+-- MIGRATION (para bases de datos existentes):
+-- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS client_type text NOT NULL DEFAULT 'ecommerce' CHECK (client_type IN ('ecommerce', 'servicios'));
 
 COMMENT ON TABLE public.clients IS 'Cuentas publicitarias de clientes de la agencia';
 COMMENT ON COLUMN public.clients.meta_account_id IS 'ID de cuenta de Meta Ads (act_XXXXXXXXXX)';
@@ -48,6 +52,28 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 COMMENT ON TABLE public.profiles IS 'Perfil de usuarios del dashboard (equipo Chill Digital)';
 
 
+-- 5. client_monthly_goals
+CREATE TABLE IF NOT EXISTS public.client_monthly_goals (
+  id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id    uuid          NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  year         integer       NOT NULL,
+  month        integer       NOT NULL CHECK (month BETWEEN 1 AND 12),
+  inversion    numeric(12,2),
+  compras      integer,
+  cpa          numeric(10,2),
+  roas         numeric(10,2),
+  facturacion  numeric(12,2),
+  created_at   timestamptz   NOT NULL DEFAULT now(),
+  updated_at   timestamptz   NOT NULL DEFAULT now(),
+  UNIQUE (client_id, year, month)
+);
+
+-- MIGRATION (para bases de datos existentes):
+-- CREATE TABLE IF NOT EXISTS public.client_monthly_goals (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), client_id uuid NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE, year integer NOT NULL, month integer NOT NULL CHECK (month BETWEEN 1 AND 12), inversion numeric(12,2), compras integer, cpa numeric(10,2), roas numeric(10,2), facturacion numeric(12,2), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (client_id, year, month));
+
+COMMENT ON TABLE public.client_monthly_goals IS 'Objetivos mensuales por cliente (inversión, compras, CPA, ROAS, facturación)';
+
+
 -- 4. client_user_access
 CREATE TABLE IF NOT EXISTS public.client_user_access (
   id          uuid  PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -68,6 +94,8 @@ CREATE INDEX IF NOT EXISTS idx_clients_active        ON public.clients(active);
 CREATE INDEX IF NOT EXISTS idx_thresholds_client_id  ON public.client_thresholds(client_id);
 CREATE INDEX IF NOT EXISTS idx_access_client_id      ON public.client_user_access(client_id);
 CREATE INDEX IF NOT EXISTS idx_access_user_id        ON public.client_user_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_goals_client_id       ON public.client_monthly_goals(client_id);
+CREATE INDEX IF NOT EXISTS idx_goals_period          ON public.client_monthly_goals(client_id, year, month);
 
 
 -- ============================================================
@@ -119,15 +147,23 @@ CREATE TRIGGER set_client_thresholds_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
 
+DROP TRIGGER IF EXISTS set_client_monthly_goals_updated_at ON public.client_monthly_goals;
+
+CREATE TRIGGER set_client_monthly_goals_updated_at
+  BEFORE UPDATE ON public.client_monthly_goals
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_updated_at();
+
 
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
-ALTER TABLE public.clients            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.client_thresholds  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.client_user_access ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.client_thresholds    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.client_user_access   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.client_monthly_goals ENABLE ROW LEVEL SECURITY;
 
 
 -- ============================================================
@@ -220,6 +256,49 @@ CREATE POLICY "thresholds_insert"
 
 CREATE POLICY "thresholds_update"
   ON public.client_thresholds
+  FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+
+-- ============================================================
+-- POLICIES — client_monthly_goals
+-- ============================================================
+
+CREATE POLICY "goals_select"
+  ON public.client_monthly_goals
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM public.client_user_access
+      WHERE client_id = client_monthly_goals.client_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "goals_insert"
+  ON public.client_monthly_goals
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "goals_update"
+  ON public.client_monthly_goals
   FOR UPDATE
   TO authenticated
   USING (

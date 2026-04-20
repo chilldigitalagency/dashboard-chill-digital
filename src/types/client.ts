@@ -4,6 +4,7 @@ export interface Client {
   slug: string;
   meta_account_id: string;
   meta_access_token: string;
+  client_type: "ecommerce" | "servicios";
   active: boolean;
   created_at: string;
 }

@@ -76,12 +76,13 @@ function getPresetRange(preset: PresetId): { from: Date; to: Date } {
     d.setDate(d.getDate() - n);
     return d;
   };
+  const yesterday = sub(1);
   switch (preset) {
     case "today":     return { from: t, to: t };
-    case "yesterday": return { from: sub(1), to: sub(1) };
-    case "last_7d":   return { from: sub(6), to: t };
-    case "last_14d":  return { from: sub(13), to: t };
-    case "last_30d":  return { from: sub(29), to: t };
+    case "yesterday": return { from: yesterday, to: yesterday };
+    case "last_7d":   return { from: sub(7), to: yesterday };
+    case "last_14d":  return { from: sub(14), to: yesterday };
+    case "last_30d":  return { from: sub(30), to: yesterday };
     case "this_month":
       return { from: new Date(t.getFullYear(), t.getMonth(), 1), to: t };
     case "last_month":

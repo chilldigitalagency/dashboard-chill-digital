@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,9 +23,16 @@ interface ClientModalProps {
 export function ClientModal({ open, onOpenChange, client }: ClientModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [clientType, setClientType] = useState<"ecommerce" | "servicios">(
+    client?.client_type ?? "ecommerce"
+  );
 
   const isEditing = !!client;
   const threshold = client?.client_thresholds?.[0];
+
+  useEffect(() => {
+    setClientType(client?.client_type ?? "ecommerce");
+  }, [client]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,6 +66,36 @@ export function ClientModal({ open, onOpenChange, client }: ClientModalProps) {
           onSubmit={handleSubmit}
           className="space-y-4 pt-2"
         >
+          {/* Tipo de cliente */}
+          <div className="space-y-2">
+            <Label>Tipo de cliente</Label>
+            <input type="hidden" name="client_type" value={clientType} />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setClientType("ecommerce")}
+                className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+                  clientType === "ecommerce"
+                    ? "border-brand-500 bg-brand-500/10 text-brand-400"
+                    : "border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-border/80"
+                }`}
+              >
+                Ecommerce
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientType("servicios")}
+                className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+                  clientType === "servicios"
+                    ? "border-brand-500 bg-brand-500/10 text-brand-400"
+                    : "border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-border/80"
+                }`}
+              >
+                Servicios
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Nombre del cliente</Label>
             <Input
@@ -96,46 +133,45 @@ export function ClientModal({ open, onOpenChange, client }: ClientModalProps) {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="roas_min">ROAS mínimo</Label>
-              <Input
-                id="roas_min"
-                name="roas_min"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="2.00"
-                defaultValue={threshold?.roas_min}
-                required
-              />
+          {clientType === "ecommerce" && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="roas_min">ROAS mínimo</Label>
+                <Input
+                  id="roas_min"
+                  name="roas_min"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="2.00"
+                  defaultValue={threshold?.roas_min}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cpa_max">CPA máximo</Label>
+                <Input
+                  id="cpa_max"
+                  name="cpa_max"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="15.00"
+                  defaultValue={threshold?.cpa_max}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sales_min">Ventas mínimas</Label>
+                <Input
+                  id="sales_min"
+                  name="sales_min"
+                  type="number"
+                  min="0"
+                  placeholder="50"
+                  defaultValue={threshold?.sales_min}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cpa_max">CPA máximo</Label>
-              <Input
-                id="cpa_max"
-                name="cpa_max"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="15.00"
-                defaultValue={threshold?.cpa_max}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sales_min">Ventas mínimas</Label>
-              <Input
-                id="sales_min"
-                name="sales_min"
-                type="number"
-                min="0"
-                placeholder="50"
-                defaultValue={threshold?.sales_min}
-                required
-              />
-            </div>
-          </div>
+          )}
 
           {error && (
             <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
