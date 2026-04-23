@@ -8,18 +8,43 @@ import {
 } from "@/lib/meta-ads/client";
 import type { DateFilter } from "@/lib/meta-ads/client";
 
-// ─── In-memory cache (5 min TTL) ─────────────────────────────────────────────
-const cache = new Map<string, { data: unknown; expiresAt: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+// ─── L1: In-memory cache (5 min TTL, per serverless instance) ────────────────
+const memCache = new Map<string, { data: unknown; expiresAt: number }>();
+const MEM_TTL_MS = 5 * 60 * 1000;
 
 function getCached<T>(key: string): T | null {
-  const entry = cache.get(key);
+  const entry = memCache.get(key);
   if (!entry) return null;
-  if (Date.now() > entry.expiresAt) { cache.delete(key); return null; }
+  if (Date.now() > entry.expiresAt) { memCache.delete(key); return null; }
   return entry.data as T;
 }
 function setCached(key: string, data: unknown) {
-  cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  memCache.set(key, { data, expiresAt: Date.now() + MEM_TTL_MS });
+}
+
+// ─── L2: Supabase persistent cache (15 min TTL, cross-instance) ──────────────
+const DB_TTL_MS = 15 * 60 * 1000;
+
+async function getDbCached<T>(key: string): Promise<T | null> {
+  try {
+    const { data } = await createAdminClient()
+      .from("meta_cache")
+      .select("data, expires_at")
+      .eq("key", key)
+      .maybeSingle();
+    if (!data) return null;
+    if (new Date(data.expires_at) < new Date()) return null;
+    return data.data as T;
+  } catch { return null; }
+}
+
+async function setDbCached(key: string, data: unknown): Promise<void> {
+  try {
+    const expires_at = new Date(Date.now() + DB_TTL_MS).toISOString();
+    await createAdminClient()
+      .from("meta_cache")
+      .upsert({ key, data, expires_at }, { onConflict: "key" });
+  } catch { /* non-fatal */ }
 }
 
 const VALID_PRESETS = [
@@ -74,6 +99,16 @@ function estimateComparisonFilter(dateFilter: DateFilter): DateFilter {
   }
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+
+  // Single-day presets compare against the immediately preceding day
+  if (dateFilter.preset === "today") {
+    return { type: "custom", since: fmt(yesterday), until: fmt(yesterday) };
+  }
+  if (dateFilter.preset === "yesterday") {
+    const dayBefore = new Date(yesterday); dayBefore.setDate(dayBefore.getDate() - 1);
+    return { type: "custom", since: fmt(dayBefore), until: fmt(dayBefore) };
+  }
+
   const days =
     dateFilter.preset === "last_7d"  ? 7  :
     dateFilter.preset === "last_14d" ? 14 :
@@ -145,7 +180,7 @@ export async function GET(
         accountMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
         comparisonMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
       };
-      let payload = getCached<OvPayload>(cacheKey);
+      let payload = getCached<OvPayload>(cacheKey) ?? await getDbCached<OvPayload>(cacheKey);
       if (!payload) {
         const comparisonFilter = getMonthComparisonFilter(dateFilter) ?? estimateComparisonFilter(dateFilter);
         const [accountMetrics, comparisonMetrics] = await Promise.all([
@@ -154,6 +189,9 @@ export async function GET(
         ]);
         payload = { accountMetrics, comparisonMetrics };
         setCached(cacheKey, payload);
+        setDbCached(cacheKey, payload);
+      } else {
+        setCached(cacheKey, payload); // warm L1 from L2
       }
       return NextResponse.json({
         id: client.id,
@@ -173,13 +211,16 @@ export async function GET(
         campaigns: Awaited<ReturnType<typeof fetchCampaigns>>;
         ads: Awaited<ReturnType<typeof fetchAds>>;
       };
-      let payload = getCached<BdPayload>(cacheKey);
+      let payload = getCached<BdPayload>(cacheKey) ?? await getDbCached<BdPayload>(cacheKey);
       if (!payload) {
         const [campaigns, ads] = await Promise.all([
           fetchCampaigns(meta_account_id, meta_access_token, dateFilter),
           fetchAds(meta_account_id, meta_access_token, dateFilter),
         ]);
         payload = { campaigns, ads };
+        setCached(cacheKey, payload);
+        setDbCached(cacheKey, payload);
+      } else {
         setCached(cacheKey, payload);
       }
       return NextResponse.json({ campaigns: payload.campaigns, ads: payload.ads });
@@ -193,7 +234,7 @@ export async function GET(
       campaigns: Awaited<ReturnType<typeof fetchCampaigns>>;
       ads: Awaited<ReturnType<typeof fetchAds>>;
     };
-    let metaPayload = getCached<FullPayload>(cacheKey);
+    let metaPayload = getCached<FullPayload>(cacheKey) ?? await getDbCached<FullPayload>(cacheKey);
     if (!metaPayload) {
       const comparisonFilter = getMonthComparisonFilter(dateFilter) ?? estimateComparisonFilter(dateFilter);
       const [accountMetrics, comparisonMetrics, campaigns, ads] = await Promise.all([
@@ -203,6 +244,9 @@ export async function GET(
         fetchAds(meta_account_id, meta_access_token, dateFilter),
       ]);
       metaPayload = { accountMetrics, comparisonMetrics, campaigns, ads };
+      setCached(cacheKey, metaPayload);
+      setDbCached(cacheKey, metaPayload);
+    } else {
       setCached(cacheKey, metaPayload);
     }
 

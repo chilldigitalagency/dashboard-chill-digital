@@ -22,6 +22,8 @@ import { DailyRevenueChart } from "@/components/charts/DailyRevenueChart";
 import { DailyVisitsChart } from "@/components/charts/DailyVisitsChart";
 import { AdPreviewModal } from "@/components/ads/AdPreviewModal";
 import { ConversionFunnelChart } from "@/components/charts/ConversionFunnelChart";
+import { PeriodComparisonTable } from "@/components/clients/PeriodComparisonTable";
+import { WeeklyEvolutionTable } from "@/components/clients/WeeklyEvolutionTable";
 import type { DailyInsightsPoint } from "@/lib/meta-ads/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -707,6 +709,17 @@ export default function ClientDetailPage() {
         </>
       )}
 
+      {/* 3b. Comparativa de períodos */}
+      <PeriodComparisonTable
+        current={m ?? null}
+        previous={cmp ?? null}
+        dateSelection={dateSelection}
+        loading={loading}
+      />
+
+      {/* 3c. Evolutivo semanal */}
+      <WeeklyEvolutionTable clientId={id} />
+
       {/* 4. Campañas activas */}
       <div className="mb-8">
         <h2 className="text-base font-semibold text-foreground mb-3">
@@ -718,7 +731,7 @@ export default function ClientDetailPage() {
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <Table className="table-fixed" style={{ width: svcTotalWidth }}>
               <TableHeader>
-                <TableRow className="hover:bg-transparent border-border">
+                <TableRow className="hover:bg-transparent border-border bg-muted/50">
                   <TH colKey="name" activeSortKey={svcSortKey} sortDir={svcSortDir} width={svcColWidths.name} onResizeStart={(e) => svcHandleResizeStart(e, "name")}>Campaña</TH>
                   <TH colKey="entrega" activeSortKey={svcSortKey} sortDir={svcSortDir} width={svcColWidths.entrega} onResizeStart={(e) => svcHandleResizeStart(e, "entrega")}>Entrega</TH>
                   <TH colKey="spend" activeSortKey={svcSortKey} sortDir={svcSortDir} sortable width={svcColWidths.spend} onSort={() => handleSvcSort("spend")} onResizeStart={(e) => svcHandleResizeStart(e, "spend")}>Inversión</TH>
@@ -774,7 +787,7 @@ export default function ClientDetailPage() {
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <Table className="table-fixed" style={{ width: totalWidth }}>
             <TableHeader>
-              <TableRow className="hover:bg-transparent border-border">
+              <TableRow className="hover:bg-transparent border-border bg-muted/50">
                 <TH colKey="camToggle" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.camToggle} onResizeStart={(e) => handleResizeStart(e, "camToggle")}><span className="print-hide">{""}</span></TH>
                 <TH colKey="estado" activeSortKey={sortKey} sortDir={sortDir} sticky width={colWidths.estado} onResizeStart={(e) => handleResizeStart(e, "estado")}>Estado</TH>
                 <TH colKey="name" activeSortKey={sortKey} sortDir={sortDir} width={colWidths.name} onResizeStart={(e) => handleResizeStart(e, "name")}>Campaña</TH>
@@ -917,7 +930,7 @@ export default function ClientDetailPage() {
           <div className="rounded-xl border border-border bg-card overflow-x-auto">
             <Table className="table-fixed" style={{ width: svcAdTotalWidth }}>
               <TableHeader>
-                <TableRow className="hover:bg-transparent border-border">
+                <TableRow className="hover:bg-transparent border-border bg-muted/50">
                   <TH colKey="adName" activeSortKey={svcAdSortKey} sortDir={svcAdSortDir} width={svcAdColWidths.name} onResizeStart={(e) => svcAdHandleResizeStart(e, "adName")}>Anuncio</TH>
                   <TH colKey="adEntrega" activeSortKey={svcAdSortKey} sortDir={svcAdSortDir} width={svcAdColWidths.entrega} onResizeStart={(e) => svcAdHandleResizeStart(e, "adEntrega")}>Entrega</TH>
                   <TH colKey="spend" activeSortKey={svcAdSortKey} sortDir={svcAdSortDir} sortable width={svcAdColWidths.spend} onSort={() => handleSvcAdSort("spend")} onResizeStart={(e) => svcAdHandleResizeStart(e, "spend")}>Inversión</TH>
@@ -981,7 +994,7 @@ export default function ClientDetailPage() {
         <div className="rounded-xl border border-border bg-card overflow-x-auto [&_td]:overflow-hidden [&_td]:text-ellipsis">
           <Table className="table-fixed" style={{ width: adTotalWidth }}>
             <TableHeader>
-              <TableRow className="hover:bg-transparent border-border">
+              <TableRow className="hover:bg-transparent border-border bg-muted/50">
                 <TH colKey="adToggle" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adToggle} onResizeStart={(e) => adHandleResizeStart(e, "adToggle")}><span className="print-hide">{""}</span></TH>
                 <TH colKey="adEstado" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adEstado} onResizeStart={(e) => adHandleResizeStart(e, "adEstado")}>Estado</TH>
                 <TH colKey="adName" activeSortKey={adSortKey} sortDir={adSortDir} width={adColWidths.adName} onResizeStart={(e) => adHandleResizeStart(e, "adName")}>Anuncio</TH>

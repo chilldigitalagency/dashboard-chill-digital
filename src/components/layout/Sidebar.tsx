@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { LayoutDashboard, Users, BarChart3, Settings, LogOut, Sun, Moon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { LayoutDashboard, Users, Settings, LogOut, Sun, Moon, ChevronDown, ChevronRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -18,7 +18,6 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Clientes", href: "/clients", icon: Users },
-  { label: "Reportes", href: "/reports", icon: BarChart3 },
   { label: "Configuración", href: "/settings", icon: Settings, adminOnly: true },
 ];
 
@@ -26,14 +25,34 @@ interface SidebarProps {
   userName: string;
   userEmail: string;
   isAdmin: boolean;
+  clients: { id: string; name: string }[];
 }
 
-export function Sidebar({ userName, userEmail, isAdmin }: SidebarProps) {
+export function Sidebar({ userName, userEmail, isAdmin, clients }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Current client ID from URL
+  const clientMatch = pathname.match(/^\/clients\/([^/]+)/);
+  const activeClientId = clientMatch?.[1] ?? null;
+
+  // Auto-expand when on any /clients/* path
+  const isClientsSection = pathname.startsWith("/clients");
+  const [clientsOpen, setClientsOpen] = useState(isClientsSection);
+
+  // Keep open if navigating within clients section
+  useEffect(() => {
+    if (isClientsSection) setClientsOpen(true);
+  }, [isClientsSection]);
+
+  // Scroll active client into view
+  const activeClientRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    activeClientRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeClientId]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -75,11 +94,67 @@ export function Sidebar({ userName, userEmail, isAdmin }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+          const isClientes = item.href === "/clients";
+          const isActive = item.href === "/dashboard"
+            ? pathname === "/dashboard"
+            : pathname.startsWith(item.href);
           const Icon = item.icon;
+
+          if (isClientes) {
+            return (
+              <div key={item.href}>
+                {/* Clientes toggle row */}
+                <div className="flex items-center">
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-brand-400" : "text-current")} />
+                    {item.label}
+                  </Link>
+                  {clients.length > 0 && (
+                    <button
+                      onClick={() => setClientsOpen((o) => !o)}
+                      className="p-1.5 mr-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                    >
+                      {clientsOpen
+                        ? <ChevronDown className="h-3.5 w-3.5" />
+                        : <ChevronRight className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
+                </div>
+
+                {/* Client sub-list */}
+                {clientsOpen && clients.length > 0 && (
+                  <div className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5 max-h-64 overflow-y-auto">
+                    {clients.map((c) => {
+                      const isActiveClient = c.id === activeClientId;
+                      return (
+                        <Link
+                          key={c.id}
+                          href={`/clients/${c.id}`}
+                          ref={isActiveClient ? activeClientRef : undefined}
+                          className={cn(
+                            "block truncate rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            isActiveClient
+                              ? "bg-brand-500/15 text-brand-400"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                          )}
+                        >
+                          {c.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
 
           return (
             <Link
@@ -92,12 +167,7 @@ export function Sidebar({ userName, userEmail, isAdmin }: SidebarProps) {
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               )}
             >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isActive ? "text-brand-400" : "text-current"
-                )}
-              />
+              <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-brand-400" : "text-current")} />
               {item.label}
             </Link>
           );

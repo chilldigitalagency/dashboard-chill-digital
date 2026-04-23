@@ -28,32 +28,22 @@ export function ClientCard({ id, name, meta_account_id }: ClientCardProps) {
         className="absolute inset-0 pointer-events-none transition-opacity duration-300"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% 80%, rgba(96,74,217,0.18) 0%, transparent 70%)",
+            "radial-gradient(ellipse 80% 60% at 50% 80%, rgba(96,74,217,0.12) 0%, transparent 70%)",
           filter: "blur(8px)",
         }}
       />
 
       {/* Card */}
       <div
-        className="relative h-full rounded-[0.75rem] border flex flex-col items-center justify-center gap-6 p-8 cursor-pointer transition-all duration-200"
-        style={{
-          background: "#1a1a24",
-          borderColor: "rgba(255,255,255,0.06)",
-          boxShadow:
-            "0 0 0 1px rgba(96,74,217,0.1), 0 0 80px rgba(96,74,217,0.08)",
-          minHeight: "280px",
-        }}
+        className="client-card relative h-full rounded-[0.75rem] border flex flex-col items-center justify-center gap-6 p-8 cursor-pointer transition-all duration-200 bg-card border-border"
+        style={{ minHeight: "280px" }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.boxShadow =
-            "0 0 0 1px rgba(96,74,217,0.3), 0 0 80px rgba(96,74,217,0.18)";
-          (e.currentTarget as HTMLElement).style.borderColor =
-            "rgba(96,74,217,0.3)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,74,217,0.4)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 1px rgba(96,74,217,0.2), 0 8px 32px rgba(96,74,217,0.12)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.boxShadow =
-            "0 0 0 1px rgba(96,74,217,0.1), 0 0 80px rgba(96,74,217,0.08)";
-          (e.currentTarget as HTMLElement).style.borderColor =
-            "rgba(255,255,255,0.06)";
+          (e.currentTarget as HTMLElement).style.borderColor = "";
+          (e.currentTarget as HTMLElement).style.boxShadow = "";
         }}
         onClick={() => router.push(`/clients/${id}`)}
       >
@@ -70,7 +60,7 @@ export function ClientCard({ id, name, meta_account_id }: ClientCardProps) {
         {/* Nombre */}
         <div className="flex flex-col items-center gap-1.5">
           <p
-            className="text-white text-center leading-snug"
+            className="text-foreground text-center leading-snug"
             style={{ fontSize: "1.5rem", fontWeight: 600 }}
           >
             {name}
@@ -85,17 +75,17 @@ export function ClientCard({ id, name, meta_account_id }: ClientCardProps) {
           className="w-full h-12 rounded-full font-semibold text-base text-white transition-all duration-200 cursor-pointer"
           style={{
             background: "#604ad9",
-            boxShadow: "0 4px 24px rgba(96,74,217,0.3)",
+            boxShadow: "0 4px 24px rgba(96,74,217,0.25)",
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.background = "#4f3bc4";
             (e.currentTarget as HTMLElement).style.boxShadow =
-              "0 4px 32px rgba(96,74,217,0.5)";
+              "0 4px 32px rgba(96,74,217,0.45)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = "#604ad9";
             (e.currentTarget as HTMLElement).style.boxShadow =
-              "0 4px 24px rgba(96,74,217,0.3)";
+              "0 4px 24px rgba(96,74,217,0.25)";
           }}
           onClick={(e) => {
             e.stopPropagation();
