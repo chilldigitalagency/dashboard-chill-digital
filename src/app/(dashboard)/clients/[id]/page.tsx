@@ -90,6 +90,7 @@ interface Ad {
   id: string;
   name: string;
   status: string;
+  campaign_id: string | null;
   thumbnail_url: string | null;
   insights: CampaignInsights | null;
 }
@@ -496,14 +497,31 @@ export default function ClientDetailPage() {
     });
   }, [campaigns, sortKey, sortDir]);
 
-  const sortedAds = useMemo(() => {
-    if (!adSortKey) return ads;
-    return [...ads].sort((a, b) => {
-      const va = getAdSortValue(a, adSortKey);
-      const vb = getAdSortValue(b, adSortKey);
-      return adSortDir === "desc" ? vb - va : va - vb;
-    });
-  }, [ads, adSortKey, adSortDir]);
+  const groupedAds = useMemo(() => {
+    const campaignMap = new Map(campaigns.map((c) => [c.id, c.name]));
+    const groups = new Map<string, { campaignId: string; campaignName: string; ads: Ad[] }>();
+    for (const ad of ads) {
+      const key = ad.campaign_id ?? "__unknown__";
+      if (!groups.has(key)) {
+        const name = ad.campaign_id
+          ? (campaignMap.get(ad.campaign_id) ?? ad.campaign_id)
+          : "Sin campaña";
+        groups.set(key, { campaignId: key, campaignName: name, ads: [] });
+      }
+      groups.get(key)!.ads.push(ad);
+    }
+    const result = Array.from(groups.values());
+    if (adSortKey) {
+      for (const group of result) {
+        group.ads.sort((a: Ad, b: Ad) => {
+          const va = getAdSortValue(a, adSortKey);
+          const vb = getAdSortValue(b, adSortKey);
+          return adSortDir === "desc" ? vb - va : va - vb;
+        });
+      }
+    }
+    return result;
+  }, [ads, campaigns, adSortKey, adSortDir]);
 
   const sortedSvcCampaigns = useMemo(() => {
     if (!svcSortKey) return campaigns;
@@ -514,14 +532,31 @@ export default function ClientDetailPage() {
     });
   }, [campaigns, svcSortKey, svcSortDir]);
 
-  const sortedSvcAds = useMemo(() => {
-    if (!svcAdSortKey) return ads;
-    return [...ads].sort((a, b) => {
-      const va = getServicesSortValue(a, svcAdSortKey);
-      const vb = getServicesSortValue(b, svcAdSortKey);
-      return svcAdSortDir === "desc" ? vb - va : va - vb;
-    });
-  }, [ads, svcAdSortKey, svcAdSortDir]);
+  const groupedSvcAds = useMemo(() => {
+    const campaignMap = new Map(campaigns.map((c) => [c.id, c.name]));
+    const groups = new Map<string, { campaignId: string; campaignName: string; ads: Ad[] }>();
+    for (const ad of ads) {
+      const key = ad.campaign_id ?? "__unknown__";
+      if (!groups.has(key)) {
+        const name = ad.campaign_id
+          ? (campaignMap.get(ad.campaign_id) ?? ad.campaign_id)
+          : "Sin campaña";
+        groups.set(key, { campaignId: key, campaignName: name, ads: [] });
+      }
+      groups.get(key)!.ads.push(ad);
+    }
+    const result = Array.from(groups.values());
+    if (svcAdSortKey) {
+      for (const group of result) {
+        group.ads.sort((a: Ad, b: Ad) => {
+          const va = getServicesSortValue(a, svcAdSortKey);
+          const vb = getServicesSortValue(b, svcAdSortKey);
+          return svcAdSortDir === "desc" ? vb - va : va - vb;
+        });
+      }
+    }
+    return result;
+  }, [ads, campaigns, svcAdSortKey, svcAdSortDir]);
 
   const m = data?.accountMetrics;
   const cmp = data?.comparisonMetrics;
@@ -945,45 +980,53 @@ export default function ClientDetailPage() {
               <TableBody>
                 {breakdownLoading ? (
                   <><SkeletonRow cols={9} /><SkeletonRow cols={9} /></>
-                ) : !sortedSvcAds.length ? (
+                ) : !groupedSvcAds.length ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-10 text-sm">No hay anuncios activos.</TableCell>
                   </TableRow>
                 ) : (
-                  sortedSvcAds.map((ad) => {
-                    const ins = ad.insights;
-                    const result = ins ? getServiceResult(ins) : null;
-                    return (
-                      <TableRow key={ad.id} className="border-border">
-                        <TableCell className="font-medium text-foreground">
-                          <div className="flex items-center gap-3">
-                            {ad.thumbnail_url && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={ad.thumbnail_url} alt="" className="h-9 w-9 rounded object-cover shrink-0 bg-muted" />
-                            )}
-                            <span className="truncate">{ad.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`text-xs font-medium ${ad.status === "ACTIVE" ? "text-emerald-400" : "text-muted-foreground"}`}>{translateStatus(ad.status)}</span>
-                        </TableCell>
-                        <TableCell className="text-right text-foreground tabular-nums">{ins ? fCurrency(ins.spend) : "—"}</TableCell>
-                        <TableCell className="text-foreground tabular-nums">
-                          {result && result.value > 0 ? (
-                            <div>
-                              <div className="text-right font-medium">{Math.round(result.value)}</div>
-                              <div className="text-xs text-muted-foreground text-right">{result.label}</div>
+                  groupedSvcAds.flatMap(({ campaignId, campaignName, ads: groupAds }) => [
+                    <TableRow key={`group-${campaignId}`} className="border-border bg-muted/40 hover:bg-muted/40">
+                      <TableCell colSpan={9} className="py-2 px-4">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{campaignName}</span>
+                        <span className="ml-2 text-xs text-muted-foreground/50">{groupAds.length} anuncio{groupAds.length !== 1 ? "s" : ""}</span>
+                      </TableCell>
+                    </TableRow>,
+                    ...groupAds.map((ad) => {
+                      const ins = ad.insights;
+                      const result = ins ? getServiceResult(ins) : null;
+                      return (
+                        <TableRow key={ad.id} className="border-border">
+                          <TableCell className="font-medium text-foreground">
+                            <div className="flex items-center gap-3">
+                              {ad.thumbnail_url && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={ad.thumbnail_url} alt="" className="h-9 w-9 rounded object-cover shrink-0 bg-muted" />
+                              )}
+                              <span className="truncate">{ad.name}</span>
                             </div>
-                          ) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right text-foreground tabular-nums">{result && result.costPerResult > 0 ? fCurrency(result.costPerResult) : "—"}</TableCell>
-                        <TableCell className="text-right text-foreground tabular-nums">{ins ? `${fNum(ins.ctr, 2)}%` : "—"}</TableCell>
-                        <TableCell className="text-right text-foreground tabular-nums">{ins && ins.outbound_clicks > 0 ? Math.round(ins.outbound_clicks) : "—"}</TableCell>
-                        <TableCell className="text-right text-foreground tabular-nums">{ins ? fCompact(ins.reach) : "—"}</TableCell>
-                        <TableCell className="text-right text-foreground tabular-nums">{ins ? fNum(ins.frequency, 2) : "—"}</TableCell>
-                      </TableRow>
-                    );
-                  })
+                          </TableCell>
+                          <TableCell>
+                            <span className={`text-xs font-medium ${ad.status === "ACTIVE" ? "text-emerald-400" : "text-muted-foreground"}`}>{translateStatus(ad.status)}</span>
+                          </TableCell>
+                          <TableCell className="text-right text-foreground tabular-nums">{ins ? fCurrency(ins.spend) : "—"}</TableCell>
+                          <TableCell className="text-foreground tabular-nums">
+                            {result && result.value > 0 ? (
+                              <div>
+                                <div className="text-right font-medium">{Math.round(result.value)}</div>
+                                <div className="text-xs text-muted-foreground text-right">{result.label}</div>
+                              </div>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right text-foreground tabular-nums">{result && result.costPerResult > 0 ? fCurrency(result.costPerResult) : "—"}</TableCell>
+                          <TableCell className="text-right text-foreground tabular-nums">{ins ? `${fNum(ins.ctr, 2)}%` : "—"}</TableCell>
+                          <TableCell className="text-right text-foreground tabular-nums">{ins && ins.outbound_clicks > 0 ? Math.round(ins.outbound_clicks) : "—"}</TableCell>
+                          <TableCell className="text-right text-foreground tabular-nums">{ins ? fCompact(ins.reach) : "—"}</TableCell>
+                          <TableCell className="text-right text-foreground tabular-nums">{ins ? fNum(ins.frequency, 2) : "—"}</TableCell>
+                        </TableRow>
+                      );
+                    }),
+                  ])
                 )}
               </TableBody>
             </Table>
@@ -1024,115 +1067,89 @@ export default function ClientDetailPage() {
                   <SkeletonRow cols={21} />
                   <SkeletonRow cols={21} />
                 </>
-              ) : !sortedAds.length ? (
+              ) : !groupedAds.length ? (
                 <TableRow>
                   <TableCell colSpan={21} className="text-center text-muted-foreground py-10 text-sm">
                     No hay anuncios activos.
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedAds.map((ad) => {
-                  const ins = ad.insights;
-                  const ticketPromedio = ins && ins.purchases > 0 ? ins.revenue / ins.purchases : 0;
-                  const tasaConversion = ins && ins.landing_page_view > 0 ? ins.purchases / ins.landing_page_view : 0;
-                  const effectiveStatus = adStatuses[ad.id] ?? ad.status;
-                  const isToggling = togglingAds.has(ad.id);
-                  const isActive = effectiveStatus === "ACTIVE";
-                  return (
-                    <TableRow key={ad.id} className="border-border">
-                      <TableCell>
-                        <button
-                          onClick={() => handleToggleAd(ad.id, effectiveStatus)}
-                          disabled={isToggling}
-                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{ background: isActive ? "#604ad9" : "#374151" }}
-                          title={isActive ? "Pausar anuncio" : "Activar anuncio"}
-                        >
-                          <span
-                            className="pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
-                            style={{ transform: isActive ? "translateX(18px)" : "translateX(2px)" }}
-                          />
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge insights={ins} thresholds={data?.thresholds ?? null} />
-                      </TableCell>
-                      <TableCell className="font-medium text-foreground">
-                        <button
-                          className="flex items-center gap-3 w-full text-left rounded-lg px-2 py-1 -mx-2 transition-colors hover:bg-[#604ad9]/20"
-                          onClick={() => setPreviewAd({ id: ad.id, name: ad.name })}
-                          title="Ver vista previa"
-                        >
-                          {ad.thumbnail_url && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={ad.thumbnail_url}
-                              alt=""
-                              className="h-9 w-9 rounded object-cover shrink-0 bg-muted"
+                groupedAds.flatMap(({ campaignId, campaignName, ads: groupAds }) => [
+                  <TableRow key={`group-${campaignId}`} className="border-border bg-muted/40 hover:bg-muted/40">
+                    <TableCell colSpan={21} className="py-2 px-4">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{campaignName}</span>
+                      <span className="ml-2 text-xs text-muted-foreground/50">{groupAds.length} anuncio{groupAds.length !== 1 ? "s" : ""}</span>
+                    </TableCell>
+                  </TableRow>,
+                  ...groupAds.map((ad) => {
+                    const ins = ad.insights;
+                    const ticketPromedio = ins && ins.purchases > 0 ? ins.revenue / ins.purchases : 0;
+                    const tasaConversion = ins && ins.landing_page_view > 0 ? ins.purchases / ins.landing_page_view : 0;
+                    const effectiveStatus = adStatuses[ad.id] ?? ad.status;
+                    const isToggling = togglingAds.has(ad.id);
+                    const isActive = effectiveStatus === "ACTIVE";
+                    return (
+                      <TableRow key={ad.id} className="border-border">
+                        <TableCell>
+                          <button
+                            onClick={() => handleToggleAd(ad.id, effectiveStatus)}
+                            disabled={isToggling}
+                            className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: isActive ? "#604ad9" : "#374151" }}
+                            title={isActive ? "Pausar anuncio" : "Activar anuncio"}
+                          >
+                            <span
+                              className="pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
+                              style={{ transform: isActive ? "translateX(18px)" : "translateX(2px)" }}
                             />
-                          )}
-                          <span className="truncate">{ad.name}</span>
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-xs font-medium ${ad.status === "ACTIVE" ? "text-emerald-400" : "text-muted-foreground"}`}>
-                          {translateStatus(ad.status)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? fCurrency(ins.spend) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? Math.round(ins.purchases) || "—" : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins && ins.cpa > 0 ? fCurrency(ins.cpa) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? `${fNum(ins.roas)}x` : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? fCurrency(ins.revenue) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ticketPromedio > 0 ? fCurrency(ticketPromedio) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {tasaConversion > 0 ? `${fNum(tasaConversion * 100, 1)}%` : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? `${fNum(ins.ctr, 2)}%` : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? Math.round(ins.add_to_cart) || "—" : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins && ins.cost_per_add_to_cart > 0 ? fCurrency(ins.cost_per_add_to_cart) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? Math.round(ins.initiate_checkout) || "—" : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins && ins.cost_per_initiate_checkout > 0 ? fCurrency(ins.cost_per_initiate_checkout) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? Math.round(ins.landing_page_view) || "—" : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins && ins.cost_per_landing_page_view > 0 ? fCurrency(ins.cost_per_landing_page_view) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? fCompact(ins.reach) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? fCurrency(ins.cpm) : "—"}
-                      </TableCell>
-                      <TableCell className="text-foreground tabular-nums">
-                        {ins ? fNum(ins.frequency, 2) : "—"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge insights={ins} thresholds={data?.thresholds ?? null} />
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground">
+                          <button
+                            className="flex items-center gap-3 w-full text-left rounded-lg px-2 py-1 -mx-2 transition-colors hover:bg-[#604ad9]/20"
+                            onClick={() => setPreviewAd({ id: ad.id, name: ad.name })}
+                            title="Ver vista previa"
+                          >
+                            {ad.thumbnail_url && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={ad.thumbnail_url}
+                                alt=""
+                                className="h-9 w-9 rounded object-cover shrink-0 bg-muted"
+                              />
+                            )}
+                            <span className="truncate">{ad.name}</span>
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs font-medium ${ad.status === "ACTIVE" ? "text-emerald-400" : "text-muted-foreground"}`}>
+                            {translateStatus(ad.status)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? fCurrency(ins.spend) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? Math.round(ins.purchases) || "—" : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins && ins.cpa > 0 ? fCurrency(ins.cpa) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? `${fNum(ins.roas)}x` : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? fCurrency(ins.revenue) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ticketPromedio > 0 ? fCurrency(ticketPromedio) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{tasaConversion > 0 ? `${fNum(tasaConversion * 100, 1)}%` : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? `${fNum(ins.ctr, 2)}%` : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? Math.round(ins.add_to_cart) || "—" : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins && ins.cost_per_add_to_cart > 0 ? fCurrency(ins.cost_per_add_to_cart) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? Math.round(ins.initiate_checkout) || "—" : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins && ins.cost_per_initiate_checkout > 0 ? fCurrency(ins.cost_per_initiate_checkout) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? Math.round(ins.landing_page_view) || "—" : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins && ins.cost_per_landing_page_view > 0 ? fCurrency(ins.cost_per_landing_page_view) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? fCompact(ins.reach) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? fCurrency(ins.cpm) : "—"}</TableCell>
+                        <TableCell className="text-foreground tabular-nums">{ins ? fNum(ins.frequency, 2) : "—"}</TableCell>
+                      </TableRow>
+                    );
+                  }),
+                ])
               )}
             </TableBody>
           </Table>

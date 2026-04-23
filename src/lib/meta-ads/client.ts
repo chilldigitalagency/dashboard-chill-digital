@@ -177,6 +177,7 @@ export interface Ad {
   id: string;
   name: string;
   status: string;
+  campaign_id: string | null;
   thumbnail_url: string | null;
   insights: AdInsights | null;
 }
@@ -202,6 +203,7 @@ interface RawAd {
   name: string;
   status: string;
   effective_status?: string;
+  campaign_id?: string;
   creative?: { thumbnail_url?: string };
   insights?: RawInsightsBlock;
 }
@@ -379,7 +381,7 @@ export async function fetchAds(
 ): Promise<Ad[]> {
   const insightsFields = `insights.${insightsDateParam(dateFilter)}{spend,impressions,reach,frequency,clicks,actions,action_values,ctr,cpm,cost_per_action_type,outbound_clicks,outbound_clicks_ctr,instagram_profile_visits}`;
   const params = new URLSearchParams({
-    fields: `id,name,status,effective_status,creative{thumbnail_url},${insightsFields}`,
+    fields: `id,name,status,effective_status,campaign_id,creative{thumbnail_url},${insightsFields}`,
     effective_status: '["ACTIVE","PAUSED"]',
     access_token: accessToken,
     limit: "50",
@@ -394,6 +396,7 @@ export async function fetchAds(
         id: ad.id,
         name: ad.name,
         status: ad.effective_status ?? ad.status,
+        campaign_id: ad.campaign_id ?? null,
         thumbnail_url: ad.creative?.thumbnail_url ?? null,
         insights: row ? parseInsightsRow(row) : null,
       };
