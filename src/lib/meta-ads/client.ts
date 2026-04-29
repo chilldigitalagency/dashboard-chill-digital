@@ -430,6 +430,7 @@ export async function fetchDailyInsights(
     fields: "spend,actions,action_values,cost_per_action_type,outbound_clicks",
     level: "account",
     time_increment: "1",
+    limit: "90",
     access_token: accessToken,
   });
   applyDateFilter(params, dateFilter);
