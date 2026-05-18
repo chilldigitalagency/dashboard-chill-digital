@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fetchAccountInsights,
+  fetchIgVisitsTotal,
   fetchCampaigns,
   fetchAds,
 } from "@/lib/meta-ads/client";
@@ -172,10 +173,11 @@ export async function GET(
     const { meta_account_id, meta_access_token } = client;
     const threshold = (client.client_thresholds as { roas_min: number; cpa_max: number; sales_min: number }[])?.[0] ?? null;
     const dateKey = since ? `${since}:${until}` : presetParam;
+    const CV = "v9"; // bump when fetch shape changes to bust stale cache
 
     // ── Overview: only account metrics (fast) ────────────────────────────────
     if (type === "overview") {
-      const cacheKey = `${accountId}:overview:${dateKey}`;
+      const cacheKey = `${accountId}:overview:${CV}:${dateKey}`;
       type OvPayload = {
         accountMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
         comparisonMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
@@ -183,10 +185,14 @@ export async function GET(
       let payload = getCached<OvPayload>(cacheKey) ?? await getDbCached<OvPayload>(cacheKey);
       if (!payload) {
         const comparisonFilter = getMonthComparisonFilter(dateFilter) ?? estimateComparisonFilter(dateFilter);
-        const [accountMetrics, comparisonMetrics] = await Promise.all([
+        const [accountMetrics, comparisonMetrics, igVisitsCurrent, igVisitsPrev] = await Promise.all([
           fetchAccountInsights(meta_account_id, meta_access_token, dateFilter),
           fetchAccountInsights(meta_account_id, meta_access_token, comparisonFilter),
+          fetchIgVisitsTotal(meta_account_id, meta_access_token, dateFilter),
+          fetchIgVisitsTotal(meta_account_id, meta_access_token, comparisonFilter),
         ]);
+        if (accountMetrics) accountMetrics.ig_profile_visits = igVisitsCurrent;
+        if (comparisonMetrics) comparisonMetrics.ig_profile_visits = igVisitsPrev;
         payload = { accountMetrics, comparisonMetrics };
         setCached(cacheKey, payload);
         setDbCached(cacheKey, payload);
@@ -206,7 +212,7 @@ export async function GET(
 
     // ── Breakdown: only campaigns + ads ──────────────────────────────────────
     if (type === "breakdown") {
-      const cacheKey = `${accountId}:breakdown:${dateKey}`;
+      const cacheKey = `${accountId}:breakdown:${CV}:${dateKey}`;
       type BdPayload = {
         campaigns: Awaited<ReturnType<typeof fetchCampaigns>>;
         ads: Awaited<ReturnType<typeof fetchAds>>;
@@ -227,7 +233,7 @@ export async function GET(
     }
 
     // ── Full (backward compat) ────────────────────────────────────────────────
-    const cacheKey = `${accountId}:full:${dateKey}`;
+    const cacheKey = `${accountId}:full:${CV}:${dateKey}`;
     type FullPayload = {
       accountMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;
       comparisonMetrics: Awaited<ReturnType<typeof fetchAccountInsights>>;

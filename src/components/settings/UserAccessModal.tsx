@@ -68,8 +68,8 @@ export function UserAccessModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md bg-card border-border flex flex-col max-h-[80vh]">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-foreground">
             Gestionar acceso
           </DialogTitle>
@@ -79,13 +79,13 @@ export function UserAccessModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-2">
+        <div className="flex-1 overflow-hidden py-2 min-h-0">
           {activeClients.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               No hay clientes activos registrados.
             </p>
           ) : (
-            <ScrollArea className="max-h-72">
+            <ScrollArea className="h-full">
               <div className="space-y-1 pr-2">
                 {activeClients.map((client) => (
                   <label
@@ -111,12 +111,12 @@ export function UserAccessModal({
         </div>
 
         {error && (
-          <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
+          <p className="flex-shrink-0 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
             {error}
           </p>
         )}
 
-        <div className="flex justify-between items-center pt-2">
+        <div className="flex-shrink-0 flex justify-between items-center pt-2 border-t border-border">
           <p className="text-xs text-muted-foreground">
             {selected.length} cliente{selected.length !== 1 ? "s" : ""}{" "}
             seleccionado{selected.length !== 1 ? "s" : ""}

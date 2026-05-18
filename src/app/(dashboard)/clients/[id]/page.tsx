@@ -20,11 +20,12 @@ import { DailySpendChart } from "@/components/charts/DailySpendChart";
 import { DailySalesChart } from "@/components/charts/DailySalesChart";
 import { DailyRevenueChart } from "@/components/charts/DailyRevenueChart";
 import { DailyVisitsChart } from "@/components/charts/DailyVisitsChart";
+import { ServiciosDailyCharts } from "@/components/charts/ServiciosDailyCharts";
 import { AdPreviewModal } from "@/components/ads/AdPreviewModal";
 import { ConversionFunnelChart } from "@/components/charts/ConversionFunnelChart";
 import { PeriodComparisonTable } from "@/components/clients/PeriodComparisonTable";
 import { WeeklyEvolutionTable } from "@/components/clients/WeeklyEvolutionTable";
-import type { DailyInsightsPoint } from "@/lib/meta-ads/client";
+import type { DailyInsightsPoint, ServiciosDailyPoint } from "@/lib/meta-ads/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ interface Campaign {
   id: string;
   name: string;
   status: string;
+  objective: string | null;
   insights: CampaignInsights | null;
 }
 
@@ -297,12 +299,43 @@ interface ServiceResult {
   costPerResult: number;
 }
 
-function getServiceResult(ins: CampaignInsights): ServiceResult {
+// Messaging objectives → result = messages/conversations
+const MESSAGING_OBJECTIVES = new Set(["MESSAGES", "OUTCOME_ENGAGEMENT"]);
+// Traffic to website objectives → result = landing_page_view
+const TRAFFIC_OBJECTIVES = new Set(["LINK_CLICKS", "OUTCOME_TRAFFIC"]);
+
+function getServiceResult(ins: CampaignInsights, objective?: string | null): ServiceResult {
+  const obj = objective ?? "";
+
+  // Messaging campaigns → conversations started
+  if (MESSAGING_OBJECTIVES.has(obj)) {
+    if (ins.messages > 0) {
+      return { value: ins.messages, label: "Mensajes", costPerResult: ins.cost_per_message > 0 ? ins.cost_per_message : ins.spend / ins.messages };
+    }
+  }
+
+  // Traffic campaigns → determine by destination (IG profile vs website)
+  if (TRAFFIC_OBJECTIVES.has(obj)) {
+    if (ins.ig_profile_visits > ins.landing_page_view) {
+      return { value: ins.ig_profile_visits, label: "Visitas al perfil IG", costPerResult: ins.spend / ins.ig_profile_visits };
+    }
+    if (ins.landing_page_view > 0) {
+      return { value: ins.landing_page_view, label: "Visitas a la landing", costPerResult: ins.spend / ins.landing_page_view };
+    }
+    if (ins.outbound_clicks > 0) {
+      return { value: ins.outbound_clicks, label: "Clics en el enlace", costPerResult: ins.spend / ins.outbound_clicks };
+    }
+  }
+
+  // Fallback: pick whichever metric is highest
+  if (ins.messages > 0 && ins.messages >= ins.ig_profile_visits) {
+    return { value: ins.messages, label: "Mensajes", costPerResult: ins.cost_per_message > 0 ? ins.cost_per_message : ins.spend / ins.messages };
+  }
   if (ins.ig_profile_visits > 0) {
     return { value: ins.ig_profile_visits, label: "Visitas al perfil IG", costPerResult: ins.spend / ins.ig_profile_visits };
   }
-  if (ins.messages > 0) {
-    return { value: ins.messages, label: "Mensajes", costPerResult: ins.cost_per_message > 0 ? ins.cost_per_message : ins.spend / ins.messages };
+  if (ins.landing_page_view > 0) {
+    return { value: ins.landing_page_view, label: "Visitas a la landing", costPerResult: ins.spend / ins.landing_page_view };
   }
   if (ins.outbound_clicks > 0) {
     return { value: ins.outbound_clicks, label: "Clics en el enlace", costPerResult: ins.spend / ins.outbound_clicks };
@@ -321,8 +354,9 @@ const SERVICES_COL_WIDTHS: Record<string, number> = {
 function getServicesSortValue(item: Campaign | Ad, key: ServicesSortKey): number {
   const ins = item.insights;
   if (!ins) return -Infinity;
-  if (key === "resultados") return getServiceResult(ins).value;
-  if (key === "cost_per_result") return getServiceResult(ins).costPerResult;
+  const objective = "objective" in item ? item.objective : null;
+  if (key === "resultados") return getServiceResult(ins, objective).value;
+  if (key === "cost_per_result") return getServiceResult(ins, objective).costPerResult;
   return (ins as unknown as Record<string, number>)[key] ?? 0;
 }
 
@@ -367,6 +401,8 @@ export default function ClientDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [dailyData, setDailyData] = useState<DailyInsightsPoint[]>([]);
   const [dailyLoading, setDailyLoading] = useState(true);
+  const [svcDailyData, setSvcDailyData] = useState<ServiciosDailyPoint[]>([]);
+  const [svcDailyLoading, setSvcDailyLoading] = useState(false);
 
   // Campaigns sort + resize
   const [sortKey, setSortKey] = useState<CampaignSortKey | null>("purchases");
@@ -561,6 +597,7 @@ export default function ClientDetailPage() {
   const m = data?.accountMetrics;
   const cmp = data?.comparisonMetrics;
 
+
   const funnelData = useMemo(() => ({
     current: {
       landing_page_views: m?.landing_page_view ?? 0,
@@ -636,6 +673,26 @@ export default function ClientDetailPage() {
     fetchData(dateSelection);
   }, [dateSelection, fetchData]);
 
+  // Fetch servicios daily data once client type is known
+  useEffect(() => {
+    if (!data?.client_type || data.client_type !== "servicios") {
+      setSvcDailyData([]);
+      return;
+    }
+    setSvcDailyLoading(true);
+    const qs =
+      dateSelection.type === "preset"
+        ? `datePreset=${dateSelection.preset}`
+        : `since=${dateSelection.since}&until=${dateSelection.until}`;
+    fetch(`/api/meta/${id}/daily-servicios?${qs}`)
+      .then((r) => r.json())
+      .then((d: unknown) => {
+        setSvcDailyData(Array.isArray(d) ? d : []);
+        setSvcDailyLoading(false);
+      })
+      .catch(() => setSvcDailyLoading(false));
+  }, [data?.client_type, dateSelection, id]);
+
   const avgTicket = m && m.purchases > 0 ? m.revenue / m.purchases : 0;
   const avgTicketPrev = cmp && cmp.purchases > 0 ? cmp.revenue / cmp.purchases : 0;
 
@@ -687,15 +744,16 @@ export default function ClientDetailPage() {
       {/* 2. Métricas principales */}
       {data?.client_type === "servicios" ? (
         <>
+          {/* Row 1: Inversión, Visitas IG, Costo por visita, Mensajes */}
           <div className="grid grid-cols-4 gap-3 mb-4">
             {loading ? (
               [...Array(4)].map((_, i) => <SkeletonMetricCard key={i} />)
             ) : m ? (
               <>
-                <MetricCard label="Inversión" value={fCurrency(m.spend)} />
-                <MetricCard label="Alcance" value={fCompact(m.reach)} />
-                <MetricCard label="Impresiones" value={fCompact(m.impressions)} />
-                <MetricCard label="Frecuencia" value={fNum(m.frequency, 2)} />
+                <MetricCard label="Inversión" value={fCurrency(m.spend)} current={m.spend} previous={cmp?.spend ?? 0} />
+                <MetricCard label="Visitas al perfil IG" value={m.ig_profile_visits > 0 ? String(Math.round(m.ig_profile_visits)) : "—"} current={m.ig_profile_visits} previous={cmp?.ig_profile_visits ?? 0} />
+                <MetricCard label="Costo por visita" value={m.ig_profile_visits > 0 ? fCurrency(m.spend / m.ig_profile_visits) : "—"} current={m.ig_profile_visits > 0 ? m.spend / m.ig_profile_visits : 0} previous={(cmp?.ig_profile_visits ?? 0) > 0 ? (cmp!.spend / cmp!.ig_profile_visits) : 0} invertedGood />
+                <MetricCard label="Mensajes" value={m.messages > 0 ? String(Math.round(m.messages)) : "—"} current={m.messages} previous={cmp?.messages ?? 0} />
               </>
             ) : (
               <div className="col-span-4 text-center text-muted-foreground py-8 text-sm">
@@ -703,21 +761,18 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
+          {/* Row 2: Costo por mensaje, CTR, CPM */}
           {(loading || m) && (
-            <div className="grid grid-cols-4 gap-3 mb-8">
+            <div className="grid grid-cols-3 gap-3 mb-8">
               {loading ? (
-                [...Array(4)].map((_, i) => <SkeletonMetricCard key={i} />)
-              ) : m ? (() => {
-                const accountResult = getServiceResult(m as unknown as CampaignInsights);
-                return (
-                  <>
-                    <MetricCard label={accountResult.label !== "—" ? accountResult.label : "Resultados"} value={accountResult.value > 0 ? String(Math.round(accountResult.value)) : "—"} />
-                    <MetricCard label="Costo por resultado" value={accountResult.costPerResult > 0 ? fCurrency(accountResult.costPerResult) : "—"} />
-                    <MetricCard label="CTR" value={`${fNum(m.ctr, 2)}%`} />
-                    <MetricCard label="Clics en el enlace" value={m.clicks > 0 ? fCompact(m.clicks) : "—"} />
-                  </>
-                );
-              })() : null}
+                [...Array(3)].map((_, i) => <SkeletonMetricCard key={i} />)
+              ) : m ? (
+                <>
+                  <MetricCard label="Costo por mensaje" value={m.cost_per_message > 0 ? fCurrency(m.cost_per_message) : (m.messages > 0 ? fCurrency(m.spend / m.messages) : "—")} current={m.cost_per_message > 0 ? m.cost_per_message : (m.messages > 0 ? m.spend / m.messages : 0)} previous={cmp ? (cmp.cost_per_message > 0 ? cmp.cost_per_message : (cmp.messages > 0 ? cmp.spend / cmp.messages : 0)) : 0} invertedGood />
+                  <MetricCard label="CTR" value={`${fNum(m.ctr, 2)}%`} current={m.ctr} previous={cmp?.ctr ?? 0} />
+                  <MetricCard label="CPM" value={fCurrency(m.cpm)} current={m.cpm} previous={cmp?.cpm ?? 0} invertedGood />
+                </>
+              ) : null}
             </div>
           )}
         </>
@@ -750,10 +805,11 @@ export default function ClientDetailPage() {
         previous={cmp ?? null}
         dateSelection={dateSelection}
         loading={loading}
+        clientType={data?.client_type ?? "ecommerce"}
       />
 
       {/* 3c. Evolutivo semanal */}
-      <WeeklyEvolutionTable clientId={id} />
+      <WeeklyEvolutionTable clientId={id} clientType={data?.client_type ?? "ecommerce"} />
 
       {/* 4. Campañas activas */}
       <div className="mb-8">
@@ -788,7 +844,7 @@ export default function ClientDetailPage() {
                 ) : (
                   sortedSvcCampaigns.map((campaign) => {
                     const ins = campaign.insights;
-                    const result = ins ? getServiceResult(ins) : null;
+                    const result = ins ? getServiceResult(ins, campaign.objective) : null;
                     return (
                       <TableRow key={campaign.id} className="border-border">
                         <TableCell className="font-medium text-foreground"><span className="block truncate">{campaign.name}</span></TableCell>
@@ -994,17 +1050,22 @@ export default function ClientDetailPage() {
                     </TableRow>,
                     ...groupAds.map((ad) => {
                       const ins = ad.insights;
-                      const result = ins ? getServiceResult(ins) : null;
+                      const campaignObjective = campaigns.find(c => c.id === ad.campaign_id)?.objective ?? null;
+                      const result = ins ? getServiceResult(ins, campaignObjective) : null;
                       return (
                         <TableRow key={ad.id} className="border-border">
                           <TableCell className="font-medium text-foreground">
-                            <div className="flex items-center gap-3">
+                            <button
+                              className="flex items-center gap-3 w-full text-left rounded-lg px-2 py-1 -mx-2 transition-colors hover:bg-[#604ad9]/20"
+                              onClick={() => setPreviewAd({ id: ad.id, name: ad.name })}
+                              title="Ver vista previa"
+                            >
                               {ad.thumbnail_url && (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={ad.thumbnail_url} alt="" className="h-9 w-9 rounded object-cover shrink-0 bg-muted" />
                               )}
                               <span className="truncate">{ad.name}</span>
-                            </div>
+                            </button>
                           </TableCell>
                           <TableCell>
                             <span className={`text-xs font-medium ${ad.status === "ACTIVE" ? "text-emerald-400" : "text-muted-foreground"}`}>{translateStatus(ad.status)}</span>
@@ -1157,16 +1218,20 @@ export default function ClientDetailPage() {
         )}
       </div>
 
-      {/* 6. Gráficos evolutivos diarios — solo ecommerce */}
-      {data?.client_type !== "servicios" && (
-        <div className="mt-8 mb-8 flex flex-col gap-6">
-          <DailySpendChart data={dailyData} loading={dailyLoading} />
-          <DailySalesChart data={dailyData} loading={dailyLoading} />
-          <DailyRevenueChart data={dailyData} loading={dailyLoading} />
-          <DailyVisitsChart data={dailyData} loading={dailyLoading} />
-          <ConversionFunnelChart data={funnelData.current} previousData={funnelData.previous} loading={loading} />
-        </div>
-      )}
+      {/* 6. Gráficos evolutivos diarios */}
+      <div className="mt-8 mb-8 flex flex-col gap-6">
+        <DailySpendChart data={dailyData} loading={dailyLoading} />
+        {data?.client_type === "servicios" ? (
+          <ServiciosDailyCharts data={svcDailyData} loading={svcDailyLoading} />
+        ) : (
+          <>
+            <DailySalesChart data={dailyData} loading={dailyLoading} />
+            <DailyRevenueChart data={dailyData} loading={dailyLoading} />
+            <DailyVisitsChart data={dailyData} loading={dailyLoading} />
+            <ConversionFunnelChart data={funnelData.current} previousData={funnelData.previous} loading={loading} />
+          </>
+        )}
+      </div>
 
       {/* Ad preview modal */}
       {previewAd && (

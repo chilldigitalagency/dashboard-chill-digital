@@ -9,7 +9,11 @@ interface Metrics {
   roas: number;
   cpa: number;
   ctr: number;
+  cpm: number;
   landing_page_view: number;
+  ig_profile_visits: number;
+  messages: number;
+  cost_per_message: number;
 }
 
 interface PeriodComparisonTableProps {
@@ -17,6 +21,7 @@ interface PeriodComparisonTableProps {
   previous: Metrics | null;
   dateSelection: DateSelection;
   loading?: boolean;
+  clientType?: "ecommerce" | "servicios";
 }
 
 // ─── Period label helpers ─────────────────────────────────────────────────────
@@ -99,13 +104,16 @@ function SkeletonRow() {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PeriodComparisonTable({ current, previous, dateSelection, loading }: PeriodComparisonTableProps) {
+export function PeriodComparisonTable({ current, previous, dateSelection, loading, clientType = "ecommerce" }: PeriodComparisonTableProps) {
   const [labelCurrent, labelPrevious] = getPeriodLabels(dateSelection);
 
   const ticketCurrent  = current  && current.purchases  > 0 ? current.revenue  / current.purchases  : 0;
   const ticketPrevious = previous && previous.purchases > 0 ? previous.revenue / previous.purchases : 0;
   const convCurrent    = current  && current.landing_page_view  > 0 ? (current.purchases  / current.landing_page_view)  * 100 : 0;
   const convPrevious   = previous && previous.landing_page_view > 0 ? (previous.purchases / previous.landing_page_view) * 100 : 0;
+
+  const costPerVisitCur  = current  && current.ig_profile_visits  > 0 ? current.spend  / current.ig_profile_visits  : 0;
+  const costPerVisitPrev = previous && previous.ig_profile_visits > 0 ? previous.spend / previous.ig_profile_visits : 0;
 
   type Row = {
     label: string;
@@ -117,7 +125,7 @@ export function PeriodComparisonTable({ current, previous, dateSelection, loadin
     alwaysNeutral?: boolean;
   };
 
-  const rows: Row[] = current && previous ? [
+  const ecommerceRows: Row[] = current && previous ? [
     { label: "Inversión",          cur: fCurrency(current.spend),    prev: fCurrency(previous.spend),    curRaw: current.spend,    prevRaw: previous.spend,    positiveIsGood: true, alwaysNeutral: true },
     { label: "Compras",            cur: fNum(current.purchases),     prev: fNum(previous.purchases),     curRaw: current.purchases, prevRaw: previous.purchases, positiveIsGood: true  },
     { label: "CPA",                cur: fCurrency(current.cpa),      prev: fCurrency(previous.cpa),      curRaw: current.cpa,      prevRaw: previous.cpa,      positiveIsGood: false },
@@ -127,6 +135,18 @@ export function PeriodComparisonTable({ current, previous, dateSelection, loadin
     { label: "Tasa de conversión", cur: `${fNum(convCurrent, 2)}%`,  prev: `${fNum(convPrevious, 2)}%`,  curRaw: convCurrent,      prevRaw: convPrevious,      positiveIsGood: true  },
     { label: "CTR",                cur: `${fNum(current.ctr, 2)}%`,  prev: `${fNum(previous.ctr, 2)}%`,  curRaw: current.ctr,      prevRaw: previous.ctr,      positiveIsGood: true  },
   ] : [];
+
+  const serviciosRows: Row[] = current && previous ? [
+    { label: "Inversión",           cur: fCurrency(current.spend),                                                     prev: fCurrency(previous.spend),                                                     curRaw: current.spend,                 prevRaw: previous.spend,                 positiveIsGood: true,  alwaysNeutral: true },
+    { label: "Visitas al perfil IG",cur: fNum(current.ig_profile_visits),                                              prev: fNum(previous.ig_profile_visits),                                              curRaw: current.ig_profile_visits,     prevRaw: previous.ig_profile_visits,     positiveIsGood: true  },
+    { label: "Costo por visita",    cur: costPerVisitCur  > 0 ? fCurrency(costPerVisitCur)  : "$0,00",                 prev: costPerVisitPrev > 0 ? fCurrency(costPerVisitPrev) : "$0,00",                  curRaw: costPerVisitCur,               prevRaw: costPerVisitPrev,               positiveIsGood: false },
+    { label: "Mensajes",            cur: fNum(current.messages),                                                       prev: fNum(previous.messages),                                                       curRaw: current.messages,              prevRaw: previous.messages,              positiveIsGood: true  },
+    { label: "Costo por mensaje",   cur: current.cost_per_message  > 0 ? fCurrency(current.cost_per_message)  : "—",  prev: previous.cost_per_message > 0 ? fCurrency(previous.cost_per_message) : "—",   curRaw: current.cost_per_message,      prevRaw: previous.cost_per_message,      positiveIsGood: false },
+    { label: "CTR",                 cur: `${fNum(current.ctr, 2)}%`,                                                   prev: `${fNum(previous.ctr, 2)}%`,                                                   curRaw: current.ctr,                   prevRaw: previous.ctr,                   positiveIsGood: true  },
+    { label: "CPM",                 cur: fCurrency(current.cpm),                                                       prev: fCurrency(previous.cpm),                                                       curRaw: current.cpm,                   prevRaw: previous.cpm,                   positiveIsGood: false },
+  ] : [];
+
+  const rows = clientType === "servicios" ? serviciosRows : ecommerceRows;
 
   return (
     <div className="mb-8">

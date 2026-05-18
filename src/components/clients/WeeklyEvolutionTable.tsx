@@ -11,7 +11,11 @@ interface WeekMetrics {
   roas: number;
   cpa: number;
   ctr: number;
+  cpm: number;
   landing_page_view: number;
+  ig_profile_visits: number;
+  messages: number;
+  cost_per_message: number;
 }
 
 interface Week {
@@ -26,6 +30,7 @@ interface Week {
 
 interface WeeklyEvolutionTableProps {
   clientId: string;
+  clientType?: "ecommerce" | "servicios";
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -110,56 +115,25 @@ type RowDef = {
   alwaysNeutral?: boolean;
 };
 
-const ROWS: RowDef[] = [
-  {
-    label: "Inversión",
-    raw: (m) => m.spend,
-    format: (m) => fCurrency(m.spend),
-    positiveIsGood: true,
-    alwaysNeutral: true,
-  },
-  {
-    label: "Compras",
-    raw: (m) => m.purchases,
-    format: (m) => fNum(m.purchases),
-    positiveIsGood: true,
-  },
-  {
-    label: "CPA",
-    raw: (m) => m.cpa,
-    format: (m) => m.cpa > 0 ? fCurrency(m.cpa) : "—",
-    positiveIsGood: false,
-  },
-  {
-    label: "ROAS",
-    raw: (m) => m.roas,
-    format: (m) => `${fNum(m.roas, 2)}x`,
-    positiveIsGood: true,
-  },
-  {
-    label: "Facturación",
-    raw: (m) => m.revenue,
-    format: (m) => fCurrency(m.revenue),
-    positiveIsGood: true,
-  },
-  {
-    label: "Ticket promedio",
-    raw: (m) => m.purchases > 0 ? m.revenue / m.purchases : 0,
-    format: (m) => m.purchases > 0 ? fCurrency(m.revenue / m.purchases) : "—",
-    positiveIsGood: true,
-  },
-  {
-    label: "Tasa de conversión",
-    raw: (m) => m.landing_page_view > 0 ? (m.purchases / m.landing_page_view) * 100 : 0,
-    format: (m) => m.landing_page_view > 0 ? `${fNum((m.purchases / m.landing_page_view) * 100, 2)}%` : "—",
-    positiveIsGood: true,
-  },
-  {
-    label: "CTR",
-    raw: (m) => m.ctr,
-    format: (m) => `${fNum(m.ctr, 2)}%`,
-    positiveIsGood: true,
-  },
+const ECOMMERCE_ROWS: RowDef[] = [
+  { label: "Inversión",          raw: (m) => m.spend,       format: (m) => fCurrency(m.spend),                                                                    positiveIsGood: true,  alwaysNeutral: true },
+  { label: "Compras",            raw: (m) => m.purchases,   format: (m) => fNum(m.purchases),                                                                     positiveIsGood: true  },
+  { label: "CPA",                raw: (m) => m.cpa,         format: (m) => m.cpa > 0 ? fCurrency(m.cpa) : "—",                                                    positiveIsGood: false },
+  { label: "ROAS",               raw: (m) => m.roas,        format: (m) => `${fNum(m.roas, 2)}x`,                                                                  positiveIsGood: true  },
+  { label: "Facturación",        raw: (m) => m.revenue,     format: (m) => fCurrency(m.revenue),                                                                   positiveIsGood: true  },
+  { label: "Ticket promedio",    raw: (m) => m.purchases > 0 ? m.revenue / m.purchases : 0,       format: (m) => m.purchases > 0 ? fCurrency(m.revenue / m.purchases) : "—",                           positiveIsGood: true  },
+  { label: "Tasa de conversión", raw: (m) => m.landing_page_view > 0 ? (m.purchases / m.landing_page_view) * 100 : 0, format: (m) => m.landing_page_view > 0 ? `${fNum((m.purchases / m.landing_page_view) * 100, 2)}%` : "—", positiveIsGood: true },
+  { label: "CTR",                raw: (m) => m.ctr,         format: (m) => `${fNum(m.ctr, 2)}%`,                                                                   positiveIsGood: true  },
+];
+
+const SERVICIOS_ROWS: RowDef[] = [
+  { label: "Inversión",           raw: (m) => m.spend,                                                              format: (m) => fCurrency(m.spend),                                                              positiveIsGood: true,  alwaysNeutral: true },
+  { label: "Visitas al perfil IG",raw: (m) => m.ig_profile_visits,                                                  format: (m) => fNum(m.ig_profile_visits),                                                       positiveIsGood: true  },
+  { label: "Costo por visita",    raw: (m) => m.ig_profile_visits > 0 ? m.spend / m.ig_profile_visits : 0,          format: (m) => m.ig_profile_visits > 0 ? fCurrency(m.spend / m.ig_profile_visits) : "—",        positiveIsGood: false },
+  { label: "Mensajes",            raw: (m) => m.messages,                                                           format: (m) => fNum(m.messages),                                                                positiveIsGood: true  },
+  { label: "Costo por mensaje",   raw: (m) => m.cost_per_message > 0 ? m.cost_per_message : (m.messages > 0 ? m.spend / m.messages : 0), format: (m) => m.cost_per_message > 0 ? fCurrency(m.cost_per_message) : (m.messages > 0 ? fCurrency(m.spend / m.messages) : "—"), positiveIsGood: false },
+  { label: "CTR",                 raw: (m) => m.ctr,                                                                format: (m) => `${fNum(m.ctr, 2)}%`,                                                            positiveIsGood: true  },
+  { label: "CPM",                 raw: (m) => m.cpm,                                                                format: (m) => fCurrency(m.cpm),                                                                positiveIsGood: false },
 ];
 
 // ─── Cell ─────────────────────────────────────────────────────────────────────
@@ -202,7 +176,8 @@ function MetricCell({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function WeeklyEvolutionTable({ clientId }: WeeklyEvolutionTableProps) {
+export function WeeklyEvolutionTable({ clientId, clientType = "ecommerce" }: WeeklyEvolutionTableProps) {
+  const ROWS = clientType === "servicios" ? SERVICIOS_ROWS : ECOMMERCE_ROWS;
   const [weeks, setWeeks] = useState<Week[]>(() =>
     getWeeks().map((w) => ({ ...w, metrics: null, loading: true, error: false }))
   );
