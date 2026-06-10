@@ -26,6 +26,12 @@ function fShort(v: number) {
   if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR").format(Math.round(v / 1000)) + "k";
   return "$" + Math.round(v);
 }
+
+function fFull(v: number) {
+  if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
+  if (v >= 10) return "$" + Math.round(v);
+  return "$" + v.toFixed(2);
+}
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
   const [, month, day] = dateStr.split("-");
@@ -124,7 +130,7 @@ function IgVisitsChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobi
         (() => {
           const mobileData = chartData.map((d) => ({
             ...d,
-            _label: `${Math.round(d.igVisits)}${d.costPerVisit > 0 ? `  ·  ${fShort(d.costPerVisit)}` : ""}`,
+            _label: `${Math.round(d.igVisits)}${d.costPerVisit > 0 ? `  ·  ${fFull(d.costPerVisit)}` : ""}`,
           }));
           return (
             <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
@@ -210,7 +216,7 @@ function MessagesChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobi
         (() => {
           const mobileData = chartData.map((d) => ({
             ...d,
-            _label: `${Math.round(d.messages)}${d.costPerMsg > 0 ? `  ·  ${fShort(d.costPerMsg)}` : ""}`,
+            _label: `${Math.round(d.messages)}${d.costPerMsg > 0 ? `  ·  ${fFull(d.costPerMsg)}` : ""}`,
           }));
           return (
             <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
@@ -296,7 +302,7 @@ function LandingChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobil
         (() => {
           const mobileData = chartData.map((d) => ({
             ...d,
-            _label: `${Math.round(d.landingViews)}${d.costPerView > 0 ? `  ·  ${fShort(d.costPerView)}` : ""}`,
+            _label: `${Math.round(d.landingViews)}${d.costPerView > 0 ? `  ·  ${fFull(d.costPerView)}` : ""}`,
           }));
           return (
             <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>

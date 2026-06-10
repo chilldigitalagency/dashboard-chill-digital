@@ -25,6 +25,13 @@ function fShort(value: number) {
     : fCurrency(value);
 }
 
+function fFull(v: number) {
+  if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
+  if (v >= 10) return "$" + Math.round(v);
+  if (v >= 1) return "$" + v.toFixed(2);
+  return "$" + v.toFixed(2);
+}
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
   const [, month, day] = dateStr.split("-");
@@ -144,7 +151,7 @@ export function DailyVisitsChart({ data, loading }: DailyVisitsChartProps) {
         (() => {
           const mobileData = data.map((d) => ({
             ...d,
-            _label: `${Math.round(d.landing_page_views)}${d.cost_per_landing_page_view > 0 ? `  ·  ${fShort(d.cost_per_landing_page_view)}` : ""}`,
+            _label: `${Math.round(d.landing_page_views)}${d.cost_per_landing_page_view > 0 ? `  ·  ${fFull(d.cost_per_landing_page_view)}` : ""}`,
           }));
           return (
             <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>

@@ -25,6 +25,13 @@ function fShort(value: number) {
   return fCurrency(value);
 }
 
+function fFull(v: number) {
+  if (v >= 1000000) return "$" + (v / 1000000).toFixed(1) + "M";
+  if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
+  if (v >= 10) return "$" + Math.round(v);
+  return "$" + v.toFixed(2);
+}
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
   const [, month, day] = dateStr.split("-");
@@ -145,7 +152,7 @@ export function DailyRevenueChart({ data, loading }: DailyRevenueChartProps) {
         (() => {
           const mobileData = data.map((d) => ({
             ...d,
-            _label: `${fShort(d.revenue)}${d.roas > 0 ? `  ·  ${d.roas.toFixed(1)}x` : ""}`,
+            _label: `${fFull(d.revenue)}${d.roas > 0 ? `  ·  ${d.roas.toFixed(1)}x` : ""}`,
           }));
           return (
             <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>

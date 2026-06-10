@@ -25,6 +25,12 @@ function fShort(value: number) {
     : fCurrency(value);
 }
 
+function fFull(v: number) {
+  if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
+  if (v >= 10) return "$" + Math.round(v);
+  return "$" + v.toFixed(2);
+}
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
   const [, month, day] = dateStr.split("-");
@@ -144,7 +150,7 @@ export function DailySalesChart({ data, loading }: DailySalesChartProps) {
         (() => {
           const mobileData = data.map((d) => ({
             ...d,
-            _label: `${Math.round(d.purchases)}${d.cpa > 0 ? `  ·  ${fShort(d.cpa)}` : ""}`,
+            _label: `${Math.round(d.purchases)}${d.cpa > 0 ? `  ·  ${fFull(d.cpa)}` : ""}`,
           }));
           return (
             <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
