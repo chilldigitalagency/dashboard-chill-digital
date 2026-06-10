@@ -699,27 +699,27 @@ export default function ClientDetailPage() {
   return (
     <div ref={reportRef} className="px-4 py-6 md:px-8 md:py-8 max-w-7xl">
       {/* 1. Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div className="flex items-start gap-4">
-          <Link href="/dashboard" data-html2canvas-ignore className="print-hide mt-0.5 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-8 gap-4">
+        <div className="flex items-start gap-3">
+          <Link href="/dashboard" data-html2canvas-ignore className="print-hide mt-0.5 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div>
+          <div className="min-w-0">
             {loading || !data ? (
               <div className="h-7 w-48 bg-muted rounded animate-pulse" />
             ) : (
-              <h1 className="text-2xl font-bold text-foreground">{data.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">{data.name}</h1>
             )}
             <p className="text-sm text-muted-foreground mt-1">
               {data?.meta_account_id
-                ? `Cuenta Publicitaria: ${data.meta_account_id.replace(/^act_/, "")}`
+                ? `Cuenta: ${data.meta_account_id.replace(/^act_/, "")}`
                 : "Cargando..."}
             </p>
           </div>
         </div>
 
         {/* Controles superiores */}
-        <div className="flex items-center gap-2 print-hide" data-html2canvas-ignore>
+        <div className="flex items-center gap-2 print-hide pl-11 sm:pl-0 shrink-0" data-html2canvas-ignore>
           <button
             onClick={handleExportPdf}
             disabled={exporting || loading}
@@ -875,7 +875,7 @@ export default function ClientDetailPage() {
         ) : (
 
         /* ── Ecommerce ── */
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-x-auto">
           <Table className="table-fixed" style={{ width: totalWidth }}>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border bg-muted/50">

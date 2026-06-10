@@ -84,16 +84,16 @@ function IgVisitsChart({ data }: { data: ServiciosDailyPoint[] }) {
   const maxCost   = Math.max(...chartData.map((d) => d.costPerVisit), 1);
 
   return (
-    <div className="rounded-xl border border-border bg-card px-6 pt-5 pb-4">
-      <div className="flex items-center gap-5 mb-5">
-        <h3 className="text-sm font-semibold text-foreground">Visitas al Perfil de Instagram y Costo por Visita</h3>
-        <div className="flex items-center gap-4 ml-auto text-xs" style={{ color: "#94a3b8" }}>
+    <div className="rounded-xl border border-border bg-card px-3 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4">
+        <h3 className="text-sm font-semibold text-foreground flex-1 min-w-0">Visitas al Perfil de Instagram y Costo por Visita</h3>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "#94a3b8" }}>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAR_COLOR }} />
+            <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: BAR_COLOR }} />
             Visitas al perfil IG
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: LINE_COLOR }} />
+            <span className="inline-block w-5 border-t-2 border-dashed shrink-0" style={{ borderColor: LINE_COLOR }} />
             Costo por visita
           </span>
         </div>
@@ -147,16 +147,16 @@ function MessagesChart({ data }: { data: ServiciosDailyPoint[] }) {
   const maxCost = Math.max(...chartData.map((d) => d.costPerMsg), 1);
 
   return (
-    <div className="rounded-xl border border-border bg-card px-6 pt-5 pb-4">
-      <div className="flex items-center gap-5 mb-5">
-        <h3 className="text-sm font-semibold text-foreground">Mensajes y Costo por Mensaje</h3>
-        <div className="flex items-center gap-4 ml-auto text-xs" style={{ color: "#94a3b8" }}>
+    <div className="rounded-xl border border-border bg-card px-3 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4">
+        <h3 className="text-sm font-semibold text-foreground flex-1 min-w-0">Mensajes y Costo por Mensaje</h3>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "#94a3b8" }}>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAR_COLOR }} />
+            <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: BAR_COLOR }} />
             Mensajes
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: LINE_COLOR }} />
+            <span className="inline-block w-5 border-t-2 border-dashed shrink-0" style={{ borderColor: LINE_COLOR }} />
             Costo por mensaje
           </span>
         </div>
@@ -210,16 +210,16 @@ function LandingChart({ data }: { data: ServiciosDailyPoint[] }) {
   const maxCost  = Math.max(...chartData.map((d) => d.costPerView), 1);
 
   return (
-    <div className="rounded-xl border border-border bg-card px-6 pt-5 pb-4">
-      <div className="flex items-center gap-5 mb-5">
-        <h3 className="text-sm font-semibold text-foreground">Visitas a la Landing Page y Costo por Visita</h3>
-        <div className="flex items-center gap-4 ml-auto text-xs" style={{ color: "#94a3b8" }}>
+    <div className="rounded-xl border border-border bg-card px-3 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4">
+        <h3 className="text-sm font-semibold text-foreground flex-1 min-w-0">Visitas a la Landing Page y Costo por Visita</h3>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "#94a3b8" }}>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAR_COLOR }} />
+            <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: BAR_COLOR }} />
             Visitas a la landing
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: LINE_COLOR }} />
+            <span className="inline-block w-5 border-t-2 border-dashed shrink-0" style={{ borderColor: LINE_COLOR }} />
             Costo por visita
           </span>
         </div>

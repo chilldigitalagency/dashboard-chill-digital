@@ -109,17 +109,17 @@ export function DailyRevenueChart({ data, loading }: DailyRevenueChartProps) {
   const maxRoas = Math.max(...data.map((d) => d.roas), 1);
 
   return (
-    <div className="rounded-xl border border-border bg-card px-6 pt-5 pb-4">
+    <div className="rounded-xl border border-border bg-card px-3 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
       {/* Header */}
-      <div className="flex items-center gap-5 mb-5">
-        <h3 className="text-sm font-semibold text-foreground">Facturación y ROAS</h3>
-        <div className="flex items-center gap-5 ml-auto">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4">
+        <h3 className="text-sm font-semibold text-foreground flex-1 min-w-0">Facturación y ROAS</h3>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <div className="flex items-center gap-1.5 text-xs" style={{ color: "#94a3b8" }}>
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAR_COLOR }} />
+            <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: BAR_COLOR }} />
             Facturación
           </div>
           <div className="flex items-center gap-1.5 text-xs" style={{ color: "#94a3b8" }}>
-            <span className="w-5 border-t-2 border-dashed" style={{ borderColor: LINE_COLOR }} />
+            <span className="w-5 border-t-2 border-dashed shrink-0" style={{ borderColor: LINE_COLOR }} />
             ROAS
           </div>
         </div>
