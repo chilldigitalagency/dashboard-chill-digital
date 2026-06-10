@@ -19,12 +19,6 @@ function fCurrency(value: number) {
   return "$" + new Intl.NumberFormat("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 }
 
-function fShort(value: number) {
-  return value >= 1000
-    ? "$" + new Intl.NumberFormat("es-AR").format(Math.round(value / 1000)) + "k"
-    : fCurrency(value);
-}
-
 function fFull(v: number) {
   if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
   if (v >= 10) return "$" + Math.round(v);

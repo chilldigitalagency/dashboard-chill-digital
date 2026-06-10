@@ -19,12 +19,6 @@ function fCurrency(value: number) {
   return "$" + new Intl.NumberFormat("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 }
 
-function fShort(value: number) {
-  if (value >= 1000000) return "$" + (value / 1000000).toFixed(1) + "M";
-  if (value >= 1000) return "$" + new Intl.NumberFormat("es-AR").format(Math.round(value / 1000)) + "k";
-  return fCurrency(value);
-}
-
 function fFull(v: number) {
   if (v >= 1000000) return "$" + (v / 1000000).toFixed(1) + "M";
   if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
