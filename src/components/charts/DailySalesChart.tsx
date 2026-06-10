@@ -5,6 +5,7 @@ import {
   ComposedChart,
   BarChart,
   Bar,
+  LabelList,
   Line,
   XAxis,
   YAxis,
@@ -75,15 +76,12 @@ function BarLabel(props: { x?: number; y?: number; width?: number; height?: numb
   );
 }
 
-// Mobile: label after horizontal bar showing purchases · CPA
-// Recharts spreads the full data row into label props (not via payload)
-function MobileSalesLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; cpa?: number }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, cpa } = props;
-  if (!value) return null;
-  const secondary = cpa && cpa > 0 ? `  ·  ${fShort(cpa)}` : "";
+function MobileLabel(props: { x?: string | number; y?: string | number; width?: string | number; height?: string | number; value?: unknown }) {
+  const x = Number(props.x ?? 0), y = Number(props.y ?? 0), width = Number(props.width ?? 0), height = Number(props.height ?? 0);
+  if (!props.value) return null;
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
-      {Math.round(value)}{secondary}
+      {String(props.value)}
     </text>
   );
 }
@@ -143,22 +141,28 @@ export function DailySalesChart({ data, loading }: DailySalesChartProps) {
 
       {isMobile ? (
         /* ── Mobile: horizontal bars, vertical scroll ── */
-        <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
-          <div style={{ height: Math.max(data.length * 34, 100) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={data}
-                margin={{ top: 2, right: 130, bottom: 2, left: 4 }}
-              >
-                <XAxis type="number" hide domain={[0, Math.ceil(maxPurchases * 1.15)]} />
-                <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                <Bar dataKey="purchases" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false} label={<MobileSalesLabel />} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        (() => {
+          const mobileData = data.map((d) => ({
+            ...d,
+            _label: `${Math.round(d.purchases)}${d.cpa > 0 ? `  ·  ${fShort(d.cpa)}` : ""}`,
+          }));
+          return (
+            <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
+              <div style={{ height: Math.max(data.length * 34, 100) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart layout="vertical" data={mobileData} margin={{ top: 2, right: 130, bottom: 2, left: 4 }}>
+                    <XAxis type="number" hide domain={[0, Math.ceil(maxPurchases * 1.15)]} />
+                    <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                    <Bar dataKey="purchases" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false}>
+                      <LabelList dataKey="_label" content={MobileLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         /* ── Desktop: vertical bar + line ── */
         <ResponsiveContainer width="100%" height={270}>

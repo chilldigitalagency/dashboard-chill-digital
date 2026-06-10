@@ -5,6 +5,7 @@ import {
   ComposedChart,
   BarChart,
   Bar,
+  LabelList,
   Line,
   XAxis,
   YAxis,
@@ -91,14 +92,12 @@ function IgTooltip({ active, payload, label }: { active?: boolean; payload?: Too
   );
 }
 
-// Recharts spreads the full data row into label props (not via payload)
-function MobileIgLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; costPerVisit?: number }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, costPerVisit } = props;
-  if (!value) return null;
-  const secondary = costPerVisit && costPerVisit > 0 ? `  ·  ${fShort(costPerVisit)}` : "";
+function MobileLabel(props: { x?: string | number; y?: string | number; width?: string | number; height?: string | number; value?: unknown }) {
+  const x = Number(props.x ?? 0), y = Number(props.y ?? 0), width = Number(props.width ?? 0), height = Number(props.height ?? 0);
+  if (!props.value) return null;
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
-      {Math.round(value)}{secondary}
+      {String(props.value)}
     </text>
   );
 }
@@ -122,18 +121,28 @@ function IgVisitsChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobi
       </div>
 
       {isMobile ? (
-        <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
-          <div style={{ height: Math.max(chartData.length * 34, 100) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={chartData} margin={{ top: 2, right: 120, bottom: 2, left: 4 }}>
-                <XAxis type="number" hide domain={[0, Math.ceil(maxVisits * 1.15)]} />
-                <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
-                <Tooltip content={<IgTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                <Bar dataKey="igVisits" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false} label={<MobileIgLabel />} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        (() => {
+          const mobileData = chartData.map((d) => ({
+            ...d,
+            _label: `${Math.round(d.igVisits)}${d.costPerVisit > 0 ? `  ·  ${fShort(d.costPerVisit)}` : ""}`,
+          }));
+          return (
+            <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
+              <div style={{ height: Math.max(chartData.length * 34, 100) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart layout="vertical" data={mobileData} margin={{ top: 2, right: 120, bottom: 2, left: 4 }}>
+                    <XAxis type="number" hide domain={[0, Math.ceil(maxVisits * 1.15)]} />
+                    <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
+                    <Tooltip content={<IgTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                    <Bar dataKey="igVisits" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false}>
+                      <LabelList dataKey="_label" content={MobileLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         <ResponsiveContainer width="100%" height={270}>
           <ComposedChart data={chartData} margin={{ top: 10, right: 64, bottom: 0, left: 10 }}>
@@ -178,16 +187,6 @@ function MsgTooltip({ active, payload, label }: { active?: boolean; payload?: To
   );
 }
 
-function MobileMsgLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; costPerMsg?: number }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, costPerMsg } = props;
-  if (!value) return null;
-  const secondary = costPerMsg && costPerMsg > 0 ? `  ·  ${fShort(costPerMsg)}` : "";
-  return (
-    <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
-      {Math.round(value)}{secondary}
-    </text>
-  );
-}
 
 function MessagesChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobile: boolean }) {
   const chartData: MsgChartRow[] = data.map((d) => ({
@@ -208,18 +207,28 @@ function MessagesChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobi
       </div>
 
       {isMobile ? (
-        <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
-          <div style={{ height: Math.max(chartData.length * 34, 100) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={chartData} margin={{ top: 2, right: 120, bottom: 2, left: 4 }}>
-                <XAxis type="number" hide domain={[0, Math.ceil(maxMsgs * 1.15)]} />
-                <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
-                <Tooltip content={<MsgTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                <Bar dataKey="messages" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false} label={<MobileMsgLabel />} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        (() => {
+          const mobileData = chartData.map((d) => ({
+            ...d,
+            _label: `${Math.round(d.messages)}${d.costPerMsg > 0 ? `  ·  ${fShort(d.costPerMsg)}` : ""}`,
+          }));
+          return (
+            <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
+              <div style={{ height: Math.max(chartData.length * 34, 100) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart layout="vertical" data={mobileData} margin={{ top: 2, right: 120, bottom: 2, left: 4 }}>
+                    <XAxis type="number" hide domain={[0, Math.ceil(maxMsgs * 1.15)]} />
+                    <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
+                    <Tooltip content={<MsgTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                    <Bar dataKey="messages" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false}>
+                      <LabelList dataKey="_label" content={MobileLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         <ResponsiveContainer width="100%" height={270}>
           <ComposedChart data={chartData} margin={{ top: 10, right: 64, bottom: 0, left: 10 }}>
@@ -264,16 +273,6 @@ function LandingTooltip({ active, payload, label }: { active?: boolean; payload?
   );
 }
 
-function MobileLandingLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; costPerView?: number }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, costPerView } = props;
-  if (!value) return null;
-  const secondary = costPerView && costPerView > 0 ? `  ·  ${fShort(costPerView)}` : "";
-  return (
-    <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
-      {Math.round(value)}{secondary}
-    </text>
-  );
-}
 
 function LandingChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobile: boolean }) {
   const chartData: LandingChartRow[] = data.map((d) => ({
@@ -294,18 +293,28 @@ function LandingChart({ data, isMobile }: { data: ServiciosDailyPoint[]; isMobil
       </div>
 
       {isMobile ? (
-        <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
-          <div style={{ height: Math.max(chartData.length * 34, 100) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={chartData} margin={{ top: 2, right: 120, bottom: 2, left: 4 }}>
-                <XAxis type="number" hide domain={[0, Math.ceil(maxViews * 1.15)]} />
-                <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
-                <Tooltip content={<LandingTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                <Bar dataKey="landingViews" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false} label={<MobileLandingLabel />} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        (() => {
+          const mobileData = chartData.map((d) => ({
+            ...d,
+            _label: `${Math.round(d.landingViews)}${d.costPerView > 0 ? `  ·  ${fShort(d.costPerView)}` : ""}`,
+          }));
+          return (
+            <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
+              <div style={{ height: Math.max(chartData.length * 34, 100) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart layout="vertical" data={mobileData} margin={{ top: 2, right: 120, bottom: 2, left: 4 }}>
+                    <XAxis type="number" hide domain={[0, Math.ceil(maxViews * 1.15)]} />
+                    <YAxis type="category" dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} width={50} />
+                    <Tooltip content={<LandingTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                    <Bar dataKey="landingViews" fill={BAR_COLOR} fillOpacity={0.85} radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false}>
+                      <LabelList dataKey="_label" content={MobileLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         <ResponsiveContainer width="100%" height={270}>
           <ComposedChart data={chartData} margin={{ top: 10, right: 64, bottom: 0, left: 10 }}>
