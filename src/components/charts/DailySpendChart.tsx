@@ -22,6 +22,13 @@ function fShort(value: number) {
     : fCurrency(value);
 }
 
+function fFull(v: number) {
+  if (v >= 1000000) return "$" + (v / 1000000).toFixed(1) + "M";
+  if (v >= 1000) return "$" + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(v));
+  if (v >= 10) return "$" + Math.round(v);
+  return "$" + v.toFixed(2);
+}
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
   const [, month, day] = dateStr.split("-");
@@ -64,7 +71,7 @@ function MobileSpendLabel(props: { x?: number; y?: number; width?: number; heigh
   if (!value) return null;
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
-      {fShort(value)}
+      {fFull(value)}
     </text>
   );
 }
