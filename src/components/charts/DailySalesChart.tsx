@@ -75,11 +75,11 @@ function BarLabel(props: { x?: number; y?: number; width?: number; height?: numb
   );
 }
 
-// Mobile: label after horizontal bar showing purchases | CPA
-function MobileSalesLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; payload?: DailyInsightsPoint }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, payload } = props;
+// Mobile: label after horizontal bar showing purchases · CPA
+// Recharts spreads the full data row into label props (not via payload)
+function MobileSalesLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; cpa?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value, cpa } = props;
   if (!value) return null;
-  const cpa = payload?.cpa;
   const secondary = cpa && cpa > 0 ? `  ·  ${fShort(cpa)}` : "";
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>

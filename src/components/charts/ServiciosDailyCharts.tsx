@@ -91,11 +91,11 @@ function IgTooltip({ active, payload, label }: { active?: boolean; payload?: Too
   );
 }
 
-function MobileIgLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; payload?: IgChartRow }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, payload } = props;
+// Recharts spreads the full data row into label props (not via payload)
+function MobileIgLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; costPerVisit?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value, costPerVisit } = props;
   if (!value) return null;
-  const cpv = payload?.costPerVisit;
-  const secondary = cpv && cpv > 0 ? `  ·  ${fShort(cpv)}` : "";
+  const secondary = costPerVisit && costPerVisit > 0 ? `  ·  ${fShort(costPerVisit)}` : "";
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
       {Math.round(value)}{secondary}
@@ -178,11 +178,10 @@ function MsgTooltip({ active, payload, label }: { active?: boolean; payload?: To
   );
 }
 
-function MobileMsgLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; payload?: MsgChartRow }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, payload } = props;
+function MobileMsgLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; costPerMsg?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value, costPerMsg } = props;
   if (!value) return null;
-  const cpm = payload?.costPerMsg;
-  const secondary = cpm && cpm > 0 ? `  ·  ${fShort(cpm)}` : "";
+  const secondary = costPerMsg && costPerMsg > 0 ? `  ·  ${fShort(costPerMsg)}` : "";
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
       {Math.round(value)}{secondary}
@@ -265,11 +264,10 @@ function LandingTooltip({ active, payload, label }: { active?: boolean; payload?
   );
 }
 
-function MobileLandingLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; payload?: LandingChartRow }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, payload } = props;
+function MobileLandingLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; costPerView?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value, costPerView } = props;
   if (!value) return null;
-  const cpv = payload?.costPerView;
-  const secondary = cpv && cpv > 0 ? `  ·  ${fShort(cpv)}` : "";
+  const secondary = costPerView && costPerView > 0 ? `  ·  ${fShort(costPerView)}` : "";
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
       {Math.round(value)}{secondary}

@@ -77,10 +77,10 @@ function RevenueBarLabel(props: { x?: number; y?: number; width?: number; height
 }
 
 // Mobile: label after horizontal bar showing revenue · roas
-function MobileRevenueLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; payload?: DailyInsightsPoint }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, payload } = props;
+// Recharts spreads the full data row into label props (not via payload)
+function MobileRevenueLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; roas?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value, roas } = props;
   if (!value) return null;
-  const roas = payload?.roas;
   const secondary = roas && roas > 0 ? `  ·  ${roas.toFixed(1)}x` : "";
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>

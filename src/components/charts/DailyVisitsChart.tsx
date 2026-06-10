@@ -76,10 +76,10 @@ function BarLabel(props: { x?: number; y?: number; width?: number; height?: numb
 }
 
 // Mobile: label after horizontal bar
-function MobileVisitsLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; payload?: DailyInsightsPoint }) {
-  const { x = 0, y = 0, width = 0, height = 0, value, payload } = props;
+// Recharts spreads the full data row into label props (not via payload)
+function MobileVisitsLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number; cost_per_landing_page_view?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value, cost_per_landing_page_view: cpv } = props;
   if (!value) return null;
-  const cpv = payload?.cost_per_landing_page_view;
   const secondary = cpv && cpv > 0 ? `  ·  ${fShort(cpv)}` : "";
   return (
     <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
