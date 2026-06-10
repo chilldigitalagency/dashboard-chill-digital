@@ -57,39 +57,58 @@ interface MetricRowProps {
 }
 
 function MetricRows({ goals, projected }: MetricRowProps) {
+  const cells = METRICS.map(({ key, format, label }) => {
+    const goalRaw = goals?.[key as keyof DashboardGoals] as number | null | undefined;
+    const projRaw = projected[key as keyof DashboardProjected];
+    const hasGoal = goalRaw != null && goalRaw > 0;
+    const onTrack = hasGoal ? isOnTrack(key, projRaw, goalRaw!) : null;
+
+    const projTextStyle =
+      onTrack === null ? "text-foreground" : onTrack ? "text-emerald-400" : "text-red-400";
+    const projBgStyle =
+      onTrack === null ? "" : onTrack ? "bg-emerald-500/5" : "bg-red-500/5";
+
+    return { key, label, format, goalRaw, projRaw, hasGoal, projTextStyle, projBgStyle };
+  });
+
   return (
-    <div className="overflow-x-auto">
-    <div className="grid grid-cols-5 divide-x divide-border min-w-[480px]">
-      {METRICS.map(({ key, format, label }) => {
-        const goalRaw = goals?.[key as keyof DashboardGoals] as number | null | undefined;
-        const projRaw = projected[key as keyof DashboardProjected];
-        const hasGoal = goalRaw != null && goalRaw > 0;
-        const onTrack = hasGoal ? isOnTrack(key, projRaw, goalRaw!) : null;
+    <>
+      {/* Mobile: 2-col grid of metric cards */}
+      <div className="md:hidden grid grid-cols-2 divide-x divide-y divide-border">
+        {cells.map(({ key, label, format, goalRaw, projRaw, hasGoal, projTextStyle, projBgStyle }) => (
+          <div key={key} className={`p-4 flex flex-col gap-2 ${projBgStyle}`}>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              {label}
+            </span>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+                Objetivo
+              </p>
+              <p className="text-sm font-semibold text-muted-foreground leading-tight">
+                {hasGoal ? format(goalRaw!) : "—"}
+              </p>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wide font-medium">
+                Proyectado
+              </p>
+              <p className={`text-base font-bold leading-tight ${projTextStyle}`}>
+                {format(projRaw)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-        const projTextStyle =
-          onTrack === null
-            ? "text-foreground"
-            : onTrack
-            ? "text-emerald-400"
-            : "text-red-400";
-
-        const projBgStyle =
-          onTrack === null
-            ? ""
-            : onTrack
-            ? "bg-emerald-500/5"
-            : "bg-red-500/5";
-
-        return (
+      {/* Desktop: horizontal 5-col layout */}
+      <div className="hidden md:grid grid-cols-5 divide-x divide-border">
+        {cells.map(({ key, label, format, goalRaw, projRaw, hasGoal, projTextStyle, projBgStyle }) => (
           <div key={key} className="flex flex-col">
-            {/* Column header */}
             <div className="px-6 pt-5 pb-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {label}
               </span>
             </div>
-
-            {/* Goal */}
             <div className="px-6 pb-4 border-b border-border">
               <p className="text-[11px] text-muted-foreground/60 mb-1 uppercase tracking-wide font-medium">
                 Objetivo
@@ -98,8 +117,6 @@ function MetricRows({ goals, projected }: MetricRowProps) {
                 {hasGoal ? format(goalRaw!) : "—"}
               </p>
             </div>
-
-            {/* Projected */}
             <div className={`px-6 py-4 flex-1 ${projBgStyle}`}>
               <p className="text-[11px] text-muted-foreground/60 mb-1 uppercase tracking-wide font-medium">
                 Proyectado
@@ -109,10 +126,9 @@ function MetricRows({ goals, projected }: MetricRowProps) {
               </p>
             </div>
           </div>
-        );
-      })}
-    </div>
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -172,18 +188,37 @@ function SkeletonClientCard() {
         </div>
         <div className="h-7 w-24 bg-muted rounded-lg" />
       </div>
-      <div className="border-t border-border overflow-x-auto"><div className="grid grid-cols-5 divide-x divide-border min-w-[480px]">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="px-6 py-5 space-y-3">
-            <div className="h-3 w-14 bg-muted rounded" />
-            <div className="h-5 w-20 bg-muted rounded" />
-            <div className="border-t border-border pt-3 space-y-2">
-              <div className="h-3 w-14 bg-muted rounded" />
-              <div className="h-6 w-24 bg-muted rounded" />
+      <div className="border-t border-border">
+        {/* Mobile skeleton */}
+        <div className="md:hidden grid grid-cols-2 divide-x divide-y divide-border">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="p-4 space-y-3">
+              <div className="h-2.5 w-14 bg-muted rounded" />
+              <div className="space-y-1.5">
+                <div className="h-2 w-10 bg-muted rounded" />
+                <div className="h-4 w-16 bg-muted rounded" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="h-2 w-10 bg-muted rounded" />
+                <div className="h-5 w-20 bg-muted rounded" />
+              </div>
             </div>
-          </div>
-        ))}
-      </div></div>
+          ))}
+        </div>
+        {/* Desktop skeleton */}
+        <div className="hidden md:grid grid-cols-5 divide-x divide-border">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="px-6 py-5 space-y-3">
+              <div className="h-3 w-14 bg-muted rounded" />
+              <div className="h-5 w-20 bg-muted rounded" />
+              <div className="border-t border-border pt-3 space-y-2">
+                <div className="h-3 w-14 bg-muted rounded" />
+                <div className="h-6 w-24 bg-muted rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
