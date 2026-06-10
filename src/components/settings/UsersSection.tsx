@@ -97,7 +97,7 @@ export function UsersSection({ users, allClients, accessByUser }: UsersSectionPr
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="rounded-xl border border-border overflow-x-auto">
             <Table className="table-fixed" style={{ width: totalWidth }}>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">

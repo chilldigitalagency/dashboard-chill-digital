@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 
 export default async function DashboardLayout({
   children,
@@ -55,18 +55,15 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="print-hide">
-        <Sidebar
-          userName={profile?.full_name ?? user.email ?? "Usuario"}
-          userEmail={user.email ?? ""}
-          isAdmin={isAdmin}
-          clients={clientsForNav}
-        />
-      </div>
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <DashboardShell
+      sidebarData={{
+        userName: profile?.full_name ?? user.email ?? "Usuario",
+        userEmail: user.email ?? "",
+        isAdmin,
+        clients: clientsForNav,
+      }}
+    >
+      {children}
+    </DashboardShell>
   );
 }

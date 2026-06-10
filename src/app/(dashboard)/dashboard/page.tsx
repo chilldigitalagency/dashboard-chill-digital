@@ -58,7 +58,8 @@ interface MetricRowProps {
 
 function MetricRows({ goals, projected }: MetricRowProps) {
   return (
-    <div className="grid grid-cols-5 divide-x divide-border">
+    <div className="overflow-x-auto">
+    <div className="grid grid-cols-5 divide-x divide-border min-w-[480px]">
       {METRICS.map(({ key, format, label }) => {
         const goalRaw = goals?.[key as keyof DashboardGoals] as number | null | undefined;
         const projRaw = projected[key as keyof DashboardProjected];
@@ -110,6 +111,7 @@ function MetricRows({ goals, projected }: MetricRowProps) {
           </div>
         );
       })}
+    </div>
     </div>
   );
 }
@@ -170,7 +172,7 @@ function SkeletonClientCard() {
         </div>
         <div className="h-7 w-24 bg-muted rounded-lg" />
       </div>
-      <div className="border-t border-border grid grid-cols-5 divide-x divide-border">
+      <div className="border-t border-border overflow-x-auto"><div className="grid grid-cols-5 divide-x divide-border min-w-[480px]">
         {[...Array(5)].map((_, i) => (
           <div key={i} className="px-6 py-5 space-y-3">
             <div className="h-3 w-14 bg-muted rounded" />
@@ -181,7 +183,7 @@ function SkeletonClientCard() {
             </div>
           </div>
         ))}
-      </div>
+      </div></div>
     </div>
   );
 }
@@ -216,7 +218,7 @@ export default function DashboardPage() {
   const currentMonthLabel = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-4 py-6 md:px-8 md:py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>

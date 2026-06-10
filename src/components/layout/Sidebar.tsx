@@ -26,9 +26,10 @@ interface SidebarProps {
   userEmail: string;
   isAdmin: boolean;
   clients: { id: string; name: string }[];
+  onClose?: () => void;
 }
 
-export function Sidebar({ userName, userEmail, isAdmin, clients }: SidebarProps) {
+export function Sidebar({ userName, userEmail, isAdmin, clients, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -68,7 +69,7 @@ export function Sidebar({ userName, userEmail, isAdmin, clients }: SidebarProps)
     .toUpperCase();
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r border-border bg-sidebar shrink-0">
+    <aside className="flex h-screen w-60 flex-col border-r border-border bg-sidebar shrink-0 shadow-xl md:shadow-none">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
         <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center shrink-0">
@@ -107,6 +108,7 @@ export function Sidebar({ userName, userEmail, isAdmin, clients }: SidebarProps)
                 <div className="flex items-center">
                   <Link
                     href={item.href}
+                    onClick={onClose}
                     className={cn(
                       "flex flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       isActive
@@ -139,6 +141,7 @@ export function Sidebar({ userName, userEmail, isAdmin, clients }: SidebarProps)
                           key={c.id}
                           href={`/clients/${c.id}`}
                           ref={isActiveClient ? activeClientRef : undefined}
+                          onClick={onClose}
                           className={cn(
                             "block truncate rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                             isActiveClient
@@ -160,6 +163,7 @@ export function Sidebar({ userName, userEmail, isAdmin, clients }: SidebarProps)
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive

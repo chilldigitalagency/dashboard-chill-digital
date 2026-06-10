@@ -697,7 +697,7 @@ export default function ClientDetailPage() {
   const avgTicketPrev = cmp && cmp.purchases > 0 ? cmp.revenue / cmp.purchases : 0;
 
   return (
-    <div ref={reportRef} className="px-8 py-8 max-w-7xl">
+    <div ref={reportRef} className="px-4 py-6 md:px-8 md:py-8 max-w-7xl">
       {/* 1. Header */}
       <div className="flex items-start justify-between mb-8">
         <div className="flex items-start gap-4">
@@ -745,7 +745,7 @@ export default function ClientDetailPage() {
       {data?.client_type === "servicios" ? (
         <>
           {/* Row 1: Inversión, Visitas IG, Costo por visita, Mensajes */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             {loading ? (
               [...Array(4)].map((_, i) => <SkeletonMetricCard key={i} />)
             ) : m ? (
@@ -763,7 +763,7 @@ export default function ClientDetailPage() {
           </div>
           {/* Row 2: Costo por mensaje, CTR, CPM */}
           {(loading || m) && (
-            <div className="grid grid-cols-3 gap-3 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
               {loading ? (
                 [...Array(3)].map((_, i) => <SkeletonMetricCard key={i} />)
               ) : m ? (
@@ -778,7 +778,7 @@ export default function ClientDetailPage() {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-6 gap-3 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
             {loading ? (
               [...Array(6)].map((_, i) => <SkeletonMetricCard key={i} />)
             ) : m ? (
@@ -819,7 +819,7 @@ export default function ClientDetailPage() {
 
         {/* ── Servicios ── */}
         {data?.client_type === "servicios" ? (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="rounded-xl border border-border bg-card overflow-x-auto">
             <Table className="table-fixed" style={{ width: svcTotalWidth }}>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-border bg-muted/50">

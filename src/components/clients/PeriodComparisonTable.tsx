@@ -151,7 +151,7 @@ export function PeriodComparisonTable({ current, previous, dateSelection, loadin
   return (
     <div className="mb-8">
       <h2 className="text-base font-semibold text-foreground mb-3">Comparativa de períodos</h2>
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">

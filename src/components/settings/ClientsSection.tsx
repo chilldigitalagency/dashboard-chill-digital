@@ -122,7 +122,7 @@ export function ClientsSection({ clients }: ClientsSectionProps) {
           </Button>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden w-full">
+        <div className="rounded-xl border border-border overflow-x-auto w-full">
           <Table className="w-full table-fixed" style={{ minWidth: Object.values(colWidths).reduce((a, b) => a + b, 0) }}>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
