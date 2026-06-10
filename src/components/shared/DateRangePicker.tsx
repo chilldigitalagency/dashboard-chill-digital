@@ -336,61 +336,47 @@ export function DateRangePicker({
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8}>
           <Popover.Popup
-            className="z-50 flex rounded-xl border border-[#2d2b3d] shadow-2xl overflow-hidden"
-            style={{ background: "#1a1a24" }}
+            className="z-50 flex flex-col md:flex-row rounded-xl border border-[#2d2b3d] shadow-2xl overflow-hidden"
+            style={{ background: "#1a1a24", maxWidth: "calc(100vw - 24px)" }}
           >
-            {/* ── Left: preset list ── */}
-            <div
-              className="w-44 flex flex-col py-3 shrink-0"
-              style={{ borderRight: "1px solid #2d2b3d" }}
-            >
+            {/* ── Presets: 2-col grid on mobile, vertical list on desktop ── */}
+            <div className="shrink-0 py-3 border-b border-[#2d2b3d] md:border-b-0 md:w-44 md:flex md:flex-col">
               <p className="text-[10px] font-semibold uppercase tracking-wider px-3 mb-2 text-[#6b6884]">
                 Período
               </p>
-              {PRESETS.map((preset) => {
-                const active =
-                  pendingType === "preset" && pendingPreset === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => handleSelectPreset(preset.id)}
-                    className="flex items-center gap-2.5 w-full text-left px-3 py-1.5 text-sm transition-colors"
-                    style={
-                      active
-                        ? { background: "#604ad9", color: "#fff" }
-                        : { color: "#ccc8e8" }
-                    }
-                    onMouseEnter={(e) => {
-                      if (!active)
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "rgba(255,255,255,0.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active)
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "transparent";
-                    }}
-                  >
-                    <span
-                      className="h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-                      style={{
-                        borderColor: active ? "#fff" : "#6b6884",
+              <div className="grid grid-cols-2 md:flex md:flex-col">
+                {PRESETS.map((preset) => {
+                  const active = pendingType === "preset" && pendingPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => handleSelectPreset(preset.id)}
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 md:py-1.5 text-sm transition-colors rounded-md md:rounded-none"
+                      style={active ? { background: "#604ad9", color: "#fff" } : { color: "#ccc8e8" }}
+                      onMouseEnter={(e) => {
+                        if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                       }}
                     >
-                      {active && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                      )}
-                    </span>
-                    {preset.label}
-                  </button>
-                );
-              })}
+                      <span
+                        className="h-3 w-3 rounded-full border-2 flex items-center justify-center shrink-0"
+                        style={{ borderColor: active ? "#fff" : "#6b6884" }}
+                      >
+                        {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      </span>
+                      <span className="truncate">{preset.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* ── Right: calendars + footer ── */}
-            <div className="flex flex-col">
+            {/* ── Calendars + footer ── */}
+            <div className="flex flex-col min-w-0 border-l-0 md:border-l border-[#2d2b3d]">
               <div
-                className="flex gap-8 px-6 pt-5 pb-3"
+                className="flex gap-4 md:gap-8 px-4 md:px-6 pt-4 md:pt-5 pb-3 overflow-x-auto"
                 onMouseLeave={() => setHover(null)}
               >
                 <Calendar
@@ -405,22 +391,25 @@ export function DateRangePicker({
                   onPrev={() => setCalMonth(prevCal(calMonth))}
                   onNext={() => {}}
                 />
-                <Calendar
-                  cal={rightCal}
-                  from={pendingFrom}
-                  to={pendingTo}
-                  hover={isSelecting ? hover : null}
-                  onDayClick={handleDayClick}
-                  onDayHover={(d) => setHover(d)}
-                  showPrev={false}
-                  showNext
-                  onPrev={() => {}}
-                  onNext={() => setCalMonth(nextCal(calMonth))}
-                />
+                {/* Second calendar hidden on mobile */}
+                <div className="hidden md:block">
+                  <Calendar
+                    cal={rightCal}
+                    from={pendingFrom}
+                    to={pendingTo}
+                    hover={isSelecting ? hover : null}
+                    onDayClick={handleDayClick}
+                    onDayHover={(d) => setHover(d)}
+                    showPrev={false}
+                    showNext
+                    onPrev={() => {}}
+                    onNext={() => setCalMonth(nextCal(calMonth))}
+                  />
+                </div>
               </div>
 
               {/* Hint */}
-              <p className="text-xs px-6 pb-1 h-5" style={{ color: "#6b6884" }}>
+              <p className="text-xs px-4 md:px-6 pb-1 h-5" style={{ color: "#6b6884" }}>
                 {isSelecting ? "Seleccioná la fecha de fin" : ""}
               </p>
 
