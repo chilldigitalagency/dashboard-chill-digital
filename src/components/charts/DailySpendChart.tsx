@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -12,10 +13,13 @@ import {
 import type { DailyInsightsPoint } from "@/lib/meta-ads/client";
 
 function fCurrency(value: number) {
-  return "$" + new Intl.NumberFormat("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+  return "$" + new Intl.NumberFormat("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+}
+
+function fShort(value: number) {
+  return value >= 1000
+    ? "$" + new Intl.NumberFormat("es-AR").format(Math.round(value / 1000)) + "k"
+    : fCurrency(value);
 }
 
 function formatDate(dateStr: string): string {
@@ -43,16 +47,24 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
+// Desktop: inside-bar label
 function SpendBarLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number }) {
   const { x = 0, y = 0, width = 0, height = 0, value } = props;
-  if (!value) return null;
-  const label = value >= 1000
-    ? "$" + new Intl.NumberFormat("es-AR").format(Math.round(value / 1000)) + "k"
-    : fCurrency(value);
-  if (height < 18) return null;
+  if (!value || height < 18) return null;
   return (
     <text x={x + width / 2} y={y + 14} textAnchor="middle" fill="#ffffff" fontSize={10} fontWeight={600} style={{ opacity: 0.9 }}>
-      {label}
+      {fShort(value)}
+    </text>
+  );
+}
+
+// Mobile: label after horizontal bar
+function MobileSpendLabel(props: { x?: number; y?: number; width?: number; height?: number; value?: number }) {
+  const { x = 0, y = 0, width = 0, height = 0, value } = props;
+  if (!value) return null;
+  return (
+    <text x={x + width + 6} y={y + height / 2} dominantBaseline="middle" fill="#94a3b8" fontSize={11} fontWeight={500}>
+      {fShort(value)}
     </text>
   );
 }
@@ -66,6 +78,14 @@ const TICK_COLOR = "#64748b";
 const BAR_COLOR  = "#604ad9";
 
 export function DailySpendChart({ data, loading }: DailySpendChartProps) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   if (loading) {
     return (
       <div className="h-72 rounded-xl border border-border bg-card animate-pulse flex items-center justify-center">
@@ -94,47 +114,52 @@ export function DailySpendChart({ data, loading }: DailySpendChartProps) {
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={270}>
-        <BarChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-
-          <XAxis
-            dataKey="date"
-            tickFormatter={formatDate}
-            tick={{ fontSize: 11, fill: TICK_COLOR }}
-            axisLine={false}
-            tickLine={false}
-            dy={8}
-            interval="preserveStartEnd"
-          />
-
-          <YAxis
-            tick={{ fontSize: 11, fill: TICK_COLOR }}
-            axisLine={false}
-            tickLine={false}
-            domain={[0, Math.ceil(maxSpend * 1.4)]}
-            tickFormatter={(v: number) =>
-              v >= 1000
-                ? `$${new Intl.NumberFormat("es-AR").format(Math.round(v / 1000))}k`
-                : `$${v}`
-            }
-            dx={-4}
-            width={52}
-          />
-
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-
-          <Bar
-            dataKey="spend"
-            fill={BAR_COLOR}
-            fillOpacity={0.8}
-            radius={[4, 4, 0, 0]}
-            maxBarSize={52}
-            label={<SpendBarLabel />}
-            isAnimationActive={false}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+      {isMobile ? (
+        /* ── Mobile: horizontal bars, vertical scroll ── */
+        <div className="overflow-y-auto" style={{ maxHeight: "62vh" }}>
+          <div style={{ height: Math.max(data.length * 34, 100) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={data}
+                margin={{ top: 2, right: 90, bottom: 2, left: 4 }}
+              >
+                <XAxis type="number" hide domain={[0, Math.ceil(maxSpend * 1.15)]} />
+                <YAxis
+                  type="category"
+                  dataKey="date"
+                  tickFormatter={formatDate}
+                  tick={{ fontSize: 11, fill: TICK_COLOR }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={50}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                <Bar
+                  dataKey="spend"
+                  fill={BAR_COLOR}
+                  fillOpacity={0.85}
+                  radius={[0, 4, 4, 0]}
+                  barSize={18}
+                  isAnimationActive={false}
+                  label={<MobileSpendLabel />}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : (
+        /* ── Desktop: vertical bars ── */
+        <ResponsiveContainer width="100%" height={270}>
+          <BarChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} dy={8} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 11, fill: TICK_COLOR }} axisLine={false} tickLine={false} domain={[0, Math.ceil(maxSpend * 1.4)]} tickFormatter={(v: number) => v >= 1000 ? `$${new Intl.NumberFormat("es-AR").format(Math.round(v / 1000))}k` : `$${v}`} dx={-4} width={52} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+            <Bar dataKey="spend" fill={BAR_COLOR} fillOpacity={0.8} radius={[4, 4, 0, 0]} maxBarSize={52} label={<SpendBarLabel />} isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
