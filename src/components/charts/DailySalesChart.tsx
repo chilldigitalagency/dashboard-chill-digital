@@ -48,7 +48,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
         <div className="flex items-center gap-3">
           <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: "#604ad9" }} />
           <span style={{ color: "#94a3b8" }}>Compras:</span>
-          <span className="font-semibold text-white ml-auto pl-3">{raw.purchases}</span>
+          <span className="font-semibold text-white ml-auto pl-3">{Math.round(raw.purchases)}</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="flex-shrink-0 w-2.5 border-t-2 border-dashed" style={{ borderColor: "#a78bfa" }} />
@@ -71,7 +71,7 @@ function BarLabel(props: { x?: number; y?: number; width?: number; height?: numb
   const cy = height < 22 ? y + height / 2 + 4 : y + 14;
   return (
     <text x={x + width / 2} y={cy} textAnchor="middle" fill="#ffffff" fontSize={11} fontWeight={600} style={{ opacity: 0.9 }}>
-      {value}
+      {Math.round(value)}
     </text>
   );
 }

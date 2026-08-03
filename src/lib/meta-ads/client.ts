@@ -1,6 +1,28 @@
 const META_API_VERSION = "v21.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
+// ─── Token único (System User) para todas las cuentas de clientes ─────────────
+
+export function getMetaSystemUserToken(): string {
+  const token = process.env.META_SYSTEM_USER_TOKEN;
+  if (!token) {
+    throw new Error("META_SYSTEM_USER_TOKEN no está configurado.");
+  }
+  return token;
+}
+
+/**
+ * Resuelve el token a usar para un cliente: si tiene un token propio cargado
+ * (cuentas personales que el System User no puede administrar), se usa ese;
+ * si no, se usa el token único del System User.
+ */
+export function resolveMetaAccessToken(clientOverrideToken?: string | null): string {
+  if (clientOverrideToken && clientOverrideToken.trim()) {
+    return clientOverrideToken.trim();
+  }
+  return getMetaSystemUserToken();
+}
+
 // ─── Date filter (preset or custom range) ─────────────────────────────────────
 
 export type DateFilter =

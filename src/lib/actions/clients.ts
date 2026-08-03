@@ -19,13 +19,15 @@ export async function createClientAction(formData: FormData) {
 
   const name = (formData.get("name") as string).trim();
   const meta_account_id = (formData.get("meta_account_id") as string).trim();
-  const meta_access_token = (formData.get("meta_access_token") as string).trim();
+  const meta_access_token = ((formData.get("meta_access_token") as string) ?? "").trim() || null;
   const client_type = (formData.get("client_type") as string) === "servicios" ? "servicios" : "ecommerce";
   const roas_min = parseFloat(formData.get("roas_min") as string) || 0;
   const cpa_max = parseFloat(formData.get("cpa_max") as string) || 0;
   const sales_min = parseInt(formData.get("sales_min") as string, 10) || 0;
+  const google_ads_account_id = ((formData.get("google_ads_account_id") as string) ?? "").trim() || null;
+  const google_ads_access_token = ((formData.get("google_ads_access_token") as string) ?? "").trim() || null;
 
-  if (!name || !meta_account_id || !meta_access_token) {
+  if (!name || !meta_account_id) {
     return { error: "Todos los campos son obligatorios." };
   }
 
@@ -33,7 +35,7 @@ export async function createClientAction(formData: FormData) {
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .insert({ name, slug, meta_account_id, meta_access_token, client_type })
+    .insert({ name, slug, meta_account_id, meta_access_token, client_type, google_ads_account_id, google_ads_access_token })
     .select()
     .single();
 
@@ -61,19 +63,21 @@ export async function updateClientAction(id: string, formData: FormData) {
 
   const name = (formData.get("name") as string).trim();
   const meta_account_id = (formData.get("meta_account_id") as string).trim();
-  const meta_access_token = (formData.get("meta_access_token") as string).trim();
+  const meta_access_token = ((formData.get("meta_access_token") as string) ?? "").trim() || null;
   const client_type = (formData.get("client_type") as string) === "servicios" ? "servicios" : "ecommerce";
   const roas_min = parseFloat(formData.get("roas_min") as string) || 0;
   const cpa_max = parseFloat(formData.get("cpa_max") as string) || 0;
   const sales_min = parseInt(formData.get("sales_min") as string, 10) || 0;
+  const google_ads_account_id = ((formData.get("google_ads_account_id") as string) ?? "").trim() || null;
+  const google_ads_access_token = ((formData.get("google_ads_access_token") as string) ?? "").trim() || null;
 
-  if (!name || !meta_account_id || !meta_access_token) {
+  if (!name || !meta_account_id) {
     return { error: "Todos los campos son obligatorios." };
   }
 
   const { error: clientError } = await supabase
     .from("clients")
-    .update({ name, meta_account_id, meta_access_token, client_type })
+    .update({ name, meta_account_id, meta_access_token, client_type, google_ads_account_id, google_ads_access_token })
     .eq("id", id);
 
   if (clientError) {

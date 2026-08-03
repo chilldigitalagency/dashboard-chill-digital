@@ -26,6 +26,7 @@ import { ConversionFunnelChart } from "@/components/charts/ConversionFunnelChart
 import { PeriodComparisonTable } from "@/components/clients/PeriodComparisonTable";
 import { WeeklyEvolutionTable } from "@/components/clients/WeeklyEvolutionTable";
 import type { DailyInsightsPoint, ServiciosDailyPoint } from "@/lib/meta-ads/client";
+import type { GoogleDailyRow } from "@/lib/google-ads/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,10 +103,23 @@ interface OverviewData {
   name: string;
   meta_account_id: string;
   client_type: "ecommerce" | "servicios";
+  has_google?: boolean;
   thresholds: Thresholds | null;
   accountMetrics: AccountMetrics | null;
   comparisonMetrics: AccountMetrics | null;
 }
+
+interface GoogleMetrics {
+  spend: number;
+  conversions: number;
+  conversion_value: number;
+  roas: number;
+  cpa: number;
+  clicks: number;
+  impressions: number;
+}
+
+type Channel = "meta" | "google" | "all";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -404,6 +418,13 @@ export default function ClientDetailPage() {
   const [svcDailyData, setSvcDailyData] = useState<ServiciosDailyPoint[]>([]);
   const [svcDailyLoading, setSvcDailyLoading] = useState(false);
 
+  // Google Ads state
+  const [channel, setChannel] = useState<Channel>("all");
+  const [googleData, setGoogleData] = useState<GoogleMetrics | null>(null);
+  const [googleCompare, setGoogleCompare] = useState<GoogleMetrics | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleDailyData, setGoogleDailyData] = useState<GoogleDailyRow[]>([]);
+
   // Campaigns sort + resize
   const [sortKey, setSortKey] = useState<CampaignSortKey | null>("purchases");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -598,6 +619,51 @@ export default function ClientDetailPage() {
   const cmp = data?.comparisonMetrics;
 
 
+  // Computed daily data based on active channel
+  const displayDailyData = useMemo((): DailyInsightsPoint[] => {
+    if (channel === "google") {
+      return googleDailyData.map((g) => ({
+        date: g.date,
+        purchases: g.conversions,
+        spend: g.spend,
+        cpa: g.conversions > 0 ? g.spend / g.conversions : 0,
+        revenue: g.conversion_value,
+        roas: g.spend > 0 ? g.conversion_value / g.spend : 0,
+        landing_page_views: 0,
+        cost_per_landing_page_view: 0,
+        messages: 0,
+        ig_profile_visits: 0,
+        cpm: 0,
+        ctr: 0,
+      }));
+    }
+    if (channel === "all" && googleDailyData.length > 0) {
+      const byDate = new Map<string, DailyInsightsPoint>();
+      for (const d of dailyData) byDate.set(d.date, { ...d });
+      for (const g of googleDailyData) {
+        const existing = byDate.get(g.date);
+        if (existing) {
+          existing.spend += g.spend;
+          existing.purchases += g.conversions;
+          existing.revenue += g.conversion_value;
+          existing.roas = existing.spend > 0 ? existing.revenue / existing.spend : 0;
+          existing.cpa = existing.purchases > 0 ? existing.spend / existing.purchases : 0;
+        } else {
+          byDate.set(g.date, {
+            date: g.date, purchases: g.conversions, spend: g.spend,
+            cpa: g.conversions > 0 ? g.spend / g.conversions : 0,
+            revenue: g.conversion_value,
+            roas: g.spend > 0 ? g.conversion_value / g.spend : 0,
+            landing_page_views: 0, cost_per_landing_page_view: 0,
+            messages: 0, ig_profile_visits: 0, cpm: 0, ctr: 0,
+          });
+        }
+      }
+      return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+    return dailyData;
+  }, [channel, dailyData, googleDailyData]);
+
   const funnelData = useMemo(() => ({
     current: {
       landing_page_views: m?.landing_page_view ?? 0,
@@ -619,6 +685,8 @@ export default function ClientDetailPage() {
       setBreakdownLoading(true);
       setDailyLoading(true);
       setError(null);
+      setGoogleData(null);
+      setGoogleCompare(null);
       const qs =
         sel.type === "preset"
           ? `datePreset=${sel.preset}`
@@ -636,6 +704,23 @@ export default function ClientDetailPage() {
         .then((d: OverviewData) => {
           setData(d);
           setLoading(false);
+          // Fetch Google data if this client has it configured
+          if (d.has_google) {
+            setGoogleLoading(true);
+            setGoogleDailyData([]);
+            fetch(`/api/google/${id}?${qs}`)
+              .then((r) => r.json())
+              .then((g: { current: GoogleMetrics; comparison: GoogleMetrics }) => {
+                setGoogleData(g.current ?? null);
+                setGoogleCompare(g.comparison ?? null);
+                setGoogleLoading(false);
+              })
+              .catch(() => setGoogleLoading(false));
+            fetch(`/api/google/${id}/daily?${qs}`)
+              .then((r) => r.json())
+              .then((rows: GoogleDailyRow[]) => setGoogleDailyData(Array.isArray(rows) ? rows : []))
+              .catch(() => {});
+          }
         });
 
       const breakdownPromise = fetch(`/api/meta/${id}?${qs}&type=breakdown`)
@@ -741,8 +826,155 @@ export default function ClientDetailPage() {
         </div>
       )}
 
+      {/* Channel selector — only shown when client has Google Ads */}
+      {data?.has_google && (
+        <div className="flex gap-1 mb-6 p-1 rounded-lg bg-muted/40 border border-border w-fit">
+          {(["all", "meta", "google"] as Channel[]).map((ch) => {
+            const labels: Record<Channel, string> = { all: "Todos", meta: "Meta Ads", google: "Google Ads" };
+            return (
+              <button
+                key={ch}
+                onClick={() => setChannel(ch)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  channel === ch
+                    ? "bg-background text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {labels[ch]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* 2. Métricas principales */}
-      {data?.client_type === "servicios" ? (
+      {channel === "google" ? (
+        /* ── Google Ads KPIs ── */
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+          {googleLoading ? (
+            [...Array(6)].map((_, i) => <SkeletonMetricCard key={i} />)
+          ) : googleData ? (
+            <>
+              <MetricCard label="Inversión" value={fCurrency(googleData.spend)} current={googleData.spend} previous={googleCompare?.spend ?? 0} />
+              <MetricCard label="Conversiones" value={String(Math.round(googleData.conversions))} current={googleData.conversions} previous={googleCompare?.conversions ?? 0} />
+              <MetricCard label="Costo por conversión" value={googleData.cpa > 0 ? fCurrency(googleData.cpa) : "—"} current={googleData.cpa} previous={googleCompare?.cpa ?? 0} invertedGood />
+              <MetricCard label="ROAS" value={`${fNum(googleData.roas)}x`} current={googleData.roas} previous={googleCompare?.roas ?? 0} />
+              <MetricCard label="Valor conv." value={fCurrency(googleData.conversion_value)} current={googleData.conversion_value} previous={googleCompare?.conversion_value ?? 0} />
+              <MetricCard label="Clics" value={fCompact(googleData.clicks)} current={googleData.clicks} previous={googleCompare?.clicks ?? 0} />
+            </>
+          ) : (
+            <div className="col-span-6 text-center text-muted-foreground py-8 text-sm">
+              Sin datos de Google Ads para este período.
+            </div>
+          )}
+        </div>
+      ) : channel === "all" ? (
+        /* ── Todos: KPIs combinados + breakdown por plataforma ── */
+        (() => {
+          const mSpend = m?.spend ?? 0;
+          const gSpend = googleData?.spend ?? 0;
+          const mPurchases = m?.purchases ?? 0;
+          const gConversions = googleData?.conversions ?? 0;
+          const mRevenue = m?.revenue ?? 0;
+          const gConvValue = googleData?.conversion_value ?? 0;
+          const totalSpend = mSpend + gSpend;
+          const totalConversions = mPurchases + gConversions;
+          const totalRevenue = mRevenue + gConvValue;
+          const totalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+          const totalCpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
+
+          const cmpMSpend = cmp?.spend ?? 0;
+          const cmpGSpend = googleCompare?.spend ?? 0;
+          const cmpTotalSpend = cmpMSpend + cmpGSpend;
+          const cmpTotalConversions = (cmp?.purchases ?? 0) + (googleCompare?.conversions ?? 0);
+          const cmpTotalRevenue = (cmp?.revenue ?? 0) + (googleCompare?.conversion_value ?? 0);
+          const cmpTotalRoas = cmpTotalSpend > 0 ? cmpTotalRevenue / cmpTotalSpend : 0;
+          const cmpTotalCpa = cmpTotalConversions > 0 ? cmpTotalSpend / cmpTotalConversions : 0;
+
+          return (
+            <>
+              {/* 5 KPI cards combinadas */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+                {loading ? (
+                  [...Array(5)].map((_, i) => <SkeletonMetricCard key={i} />)
+                ) : (
+                  <>
+                    <MetricCard label="Inversión total"  value={fCurrency(totalSpend)}                current={totalSpend}       previous={cmpTotalSpend} />
+                    <MetricCard label="Compras"           value={String(Math.round(totalConversions))} current={totalConversions}  previous={cmpTotalConversions} />
+                    <MetricCard label="CPA"               value={totalCpa > 0 ? fCurrency(totalCpa) : "—"} current={totalCpa}   previous={cmpTotalCpa} invertedGood />
+                    <MetricCard label="ROAS"              value={`${fNum(totalRoas)}x`}               current={totalRoas}        previous={cmpTotalRoas} />
+                    <MetricCard label="Facturación total" value={fCurrency(totalRevenue)}              current={totalRevenue}     previous={cmpTotalRevenue} />
+                  </>
+                )}
+              </div>
+
+              {/* Breakdown por plataforma */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                {/* Meta */}
+                <div className="rounded-xl border border-border bg-card p-5 flex gap-4">
+                  <div className="w-1 rounded-full bg-[#604ad9] shrink-0 self-stretch" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Meta Ads</p>
+                    {loading ? (
+                      <div className="flex gap-6">
+                        {[...Array(5)].map((_, i) => <div key={i} className="h-8 w-16 bg-muted rounded animate-pulse" />)}
+                      </div>
+                    ) : m ? (
+                      <div className="flex flex-wrap gap-x-6 gap-y-3">
+                        {[
+                          { label: "INVERSIÓN",   value: fCurrency(mSpend) },
+                          { label: "COMPRAS",      value: String(Math.round(mPurchases)) },
+                          { label: "CPA",          value: m.cpa > 0 ? fCurrency(m.cpa) : "—" },
+                          { label: "ROAS",         value: `${fNum(m.roas)}x` },
+                          { label: "FACTURACIÓN",  value: fCurrency(mRevenue) },
+                        ].map(({ label, value }) => (
+                          <div key={label}>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
+                            <p className="text-sm font-semibold text-foreground tabular-nums">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Sin datos</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Google */}
+                <div className="rounded-xl border border-border bg-card p-5 flex gap-4">
+                  <div className="w-1 rounded-full bg-emerald-500 shrink-0 self-stretch" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Google Ads</p>
+                    {googleLoading ? (
+                      <div className="flex gap-6">
+                        {[...Array(5)].map((_, i) => <div key={i} className="h-8 w-16 bg-muted rounded animate-pulse" />)}
+                      </div>
+                    ) : googleData ? (
+                      <div className="flex flex-wrap gap-x-6 gap-y-3">
+                        {[
+                          { label: "INVERSIÓN",   value: fCurrency(gSpend) },
+                          { label: "COMPRAS",      value: String(Math.round(gConversions)) },
+                          { label: "CPA",          value: googleData.cpa > 0 ? fCurrency(googleData.cpa) : "—" },
+                          { label: "ROAS",         value: `${fNum(googleData.roas)}x` },
+                          { label: "FACTURACIÓN",  value: fCurrency(gConvValue) },
+                        ].map(({ label, value }) => (
+                          <div key={label}>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
+                            <p className="text-sm font-semibold text-foreground tabular-nums">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Sin datos</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()
+      ) : /* channel === "meta" */ data?.client_type === "servicios" ? (
         <>
           {/* Row 1: Inversión, Visitas IG, Costo por visita, Mensajes */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -806,10 +1038,18 @@ export default function ClientDetailPage() {
         dateSelection={dateSelection}
         loading={loading}
         clientType={data?.client_type ?? "ecommerce"}
+        channel={channel}
+        googleCurrent={googleData}
+        googlePrevious={googleCompare}
       />
 
       {/* 3c. Evolutivo semanal */}
-      <WeeklyEvolutionTable clientId={id} clientType={data?.client_type ?? "ecommerce"} />
+      <WeeklyEvolutionTable
+        clientId={id}
+        clientType={data?.client_type ?? "ecommerce"}
+        channel={channel}
+        hasGoogle={data?.has_google ?? false}
+      />
 
       {/* 4. Campañas activas */}
       <div className="mb-8">
@@ -1220,15 +1460,15 @@ export default function ClientDetailPage() {
 
       {/* 6. Gráficos evolutivos diarios */}
       <div className="mt-8 mb-8 flex flex-col gap-6">
-        <DailySpendChart data={dailyData} loading={dailyLoading} />
+        <DailySpendChart data={displayDailyData} loading={dailyLoading} />
         {data?.client_type === "servicios" ? (
-          <ServiciosDailyCharts data={svcDailyData} loading={svcDailyLoading} />
+          channel !== "google" && <ServiciosDailyCharts data={svcDailyData} loading={svcDailyLoading} />
         ) : (
           <>
-            <DailySalesChart data={dailyData} loading={dailyLoading} />
-            <DailyRevenueChart data={dailyData} loading={dailyLoading} />
-            <DailyVisitsChart data={dailyData} loading={dailyLoading} />
-            <ConversionFunnelChart data={funnelData.current} previousData={funnelData.previous} loading={loading} />
+            <DailySalesChart data={displayDailyData} loading={dailyLoading} />
+            <DailyRevenueChart data={displayDailyData} loading={dailyLoading} />
+            {channel !== "google" && <DailyVisitsChart data={displayDailyData} loading={dailyLoading} />}
+            {channel !== "google" && <ConversionFunnelChart data={funnelData.current} previousData={funnelData.previous} loading={loading} />}
           </>
         )}
       </div>

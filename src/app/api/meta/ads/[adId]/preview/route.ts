@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveMetaAccessToken } from "@/lib/meta-ads/client";
 
 const META_API_BASE = "https://graph.facebook.com/v21.0";
 
@@ -48,7 +49,7 @@ export async function GET(
     // Fetch all formats in parallel
     const results = await Promise.all(
       FORMATS.map(async (format) => {
-        const p = new URLSearchParams({ ad_format: format, access_token: client.meta_access_token });
+        const p = new URLSearchParams({ ad_format: format, access_token: resolveMetaAccessToken(client.meta_access_token) });
         const res = await fetch(`${META_API_BASE}/${adId}/previews?${p.toString()}`, { cache: "no-store" });
         const json = await res.json() as { data?: { body: string; ad_format: string }[]; error?: { message: string } };
         if (!res.ok || json.error || !json.data?.[0]) return null;

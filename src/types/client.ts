@@ -3,8 +3,10 @@ export interface Client {
   name: string;
   slug: string;
   meta_account_id: string;
-  meta_access_token: string;
+  meta_access_token: string | null;
   client_type: "ecommerce" | "servicios";
+  google_ads_account_id: string | null;
+  google_ads_access_token: string | null;
   active: boolean;
   created_at: string;
 }

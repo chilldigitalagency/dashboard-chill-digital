@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type Channel = "meta" | "google" | "all";
+
 interface WeekMetrics {
   spend: number;
   purchases: number;
@@ -12,6 +14,7 @@ interface WeekMetrics {
   cpa: number;
   ctr: number;
   cpm: number;
+  clicks: number;
   landing_page_view: number;
   ig_profile_visits: number;
   messages: number;
@@ -23,7 +26,8 @@ interface Week {
   until: string;
   label: string;
   isCurrent: boolean;
-  metrics: WeekMetrics | null;
+  metaMetrics: WeekMetrics | null;
+  googleMetrics: WeekMetrics | null;
   loading: boolean;
   error: boolean;
 }
@@ -31,6 +35,8 @@ interface Week {
 interface WeeklyEvolutionTableProps {
   clientId: string;
   clientType?: "ecommerce" | "servicios";
+  channel?: Channel;
+  hasGoogle?: boolean;
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -45,7 +51,7 @@ function fShort(d: Date): string {
   return `${dd}/${mm}`;
 }
 
-function getWeeks(): Omit<Week, "metrics" | "loading" | "error">[] {
+function getWeeks(): Pick<Week, "since" | "until" | "label" | "isCurrent">[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dow = today.getDay();
@@ -53,7 +59,7 @@ function getWeeks(): Omit<Week, "metrics" | "loading" | "error">[] {
   const currentMonday = new Date(today);
   currentMonday.setDate(today.getDate() - daysToMonday);
 
-  const result: Omit<Week, "metrics" | "loading" | "error">[] = [];
+  const result: Pick<Week, "since" | "until" | "label" | "isCurrent">[] = [];
   for (let i = 3; i >= 0; i--) {
     const monday = new Date(currentMonday);
     monday.setDate(currentMonday.getDate() - i * 7);
@@ -69,6 +75,53 @@ function getWeeks(): Omit<Week, "metrics" | "loading" | "error">[] {
     });
   }
   return result;
+}
+
+// ─── Metrics helpers ──────────────────────────────────────────────────────────
+
+const ZERO_METRICS: WeekMetrics = {
+  spend: 0, purchases: 0, revenue: 0, roas: 0, cpa: 0,
+  ctr: 0, cpm: 0, clicks: 0, landing_page_view: 0,
+  ig_profile_visits: 0, messages: 0, cost_per_message: 0,
+};
+
+function googleToWeekMetrics(g: {
+  spend: number; conversions: number; conversion_value: number;
+  roas: number; cpa: number; clicks: number;
+}): WeekMetrics {
+  return {
+    ...ZERO_METRICS,
+    spend: g.spend,
+    purchases: g.conversions,
+    revenue: g.conversion_value,
+    roas: g.roas,
+    cpa: g.cpa,
+    clicks: g.clicks,
+  };
+}
+
+function combineMetrics(meta: WeekMetrics, google: WeekMetrics): WeekMetrics {
+  const spend = meta.spend + google.spend;
+  const purchases = meta.purchases + google.purchases;
+  const revenue = meta.revenue + google.revenue;
+  return {
+    ...meta,
+    spend,
+    purchases,
+    revenue,
+    roas: spend > 0 ? revenue / spend : 0,
+    cpa: purchases > 0 ? spend / purchases : 0,
+    clicks: (meta.clicks ?? 0) + (google.clicks ?? 0),
+  };
+}
+
+function getDisplayMetrics(week: Week, channel: Channel): WeekMetrics | null {
+  if (channel === "google") return week.googleMetrics;
+  if (channel === "all") {
+    if (!week.metaMetrics && !week.googleMetrics) return null;
+    return combineMetrics(week.metaMetrics ?? ZERO_METRICS, week.googleMetrics ?? ZERO_METRICS);
+  }
+  return week.metaMetrics;
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -122,6 +175,7 @@ const ECOMMERCE_ROWS: RowDef[] = [
   { label: "ROAS",               raw: (m) => m.roas,        format: (m) => `${fNum(m.roas, 2)}x`,                                                                  positiveIsGood: true  },
   { label: "Facturación",        raw: (m) => m.revenue,     format: (m) => fCurrency(m.revenue),                                                                   positiveIsGood: true  },
   { label: "Ticket promedio",    raw: (m) => m.purchases > 0 ? m.revenue / m.purchases : 0,       format: (m) => m.purchases > 0 ? fCurrency(m.revenue / m.purchases) : "—",                           positiveIsGood: true  },
+  { label: "Clics",              raw: (m) => m.clicks ?? 0, format: (m) => fNum(m.clicks ?? 0),                                                                   positiveIsGood: true  },
   { label: "Tasa de conversión", raw: (m) => m.landing_page_view > 0 ? (m.purchases / m.landing_page_view) * 100 : 0, format: (m) => m.landing_page_view > 0 ? `${fNum((m.purchases / m.landing_page_view) * 100, 2)}%` : "—", positiveIsGood: true },
   { label: "CTR",                raw: (m) => m.ctr,         format: (m) => `${fNum(m.ctr, 2)}%`,                                                                   positiveIsGood: true  },
 ];
@@ -136,15 +190,29 @@ const SERVICIOS_ROWS: RowDef[] = [
   { label: "CPM",                 raw: (m) => m.cpm,                                                                format: (m) => fCurrency(m.cpm),                                                                positiveIsGood: false },
 ];
 
+const COMBINED_ROWS: RowDef[] = [
+  { label: "Inversión",       raw: (m) => m.spend,                                                     format: (m) => fCurrency(m.spend),                                                    positiveIsGood: true,  alwaysNeutral: true },
+  { label: "Compras",         raw: (m) => m.purchases,                                                 format: (m) => fNum(m.purchases),                                                     positiveIsGood: true  },
+  { label: "CPA",             raw: (m) => m.cpa,                                                       format: (m) => m.cpa > 0 ? fCurrency(m.cpa) : "—",                                   positiveIsGood: false },
+  { label: "ROAS",            raw: (m) => m.roas,                                                      format: (m) => `${fNum(m.roas, 2)}x`,                                                 positiveIsGood: true  },
+  { label: "Facturación",     raw: (m) => m.revenue,                                                   format: (m) => fCurrency(m.revenue),                                                  positiveIsGood: true  },
+  { label: "Ticket promedio", raw: (m) => m.purchases > 0 ? m.revenue / m.purchases : 0,              format: (m) => m.purchases > 0 ? fCurrency(m.revenue / m.purchases) : "—",            positiveIsGood: true  },
+  { label: "Clics",           raw: (m) => m.clicks ?? 0,                                               format: (m) => fNum(m.clicks ?? 0),                                                   positiveIsGood: true  },
+];
+
 // ─── Cell ─────────────────────────────────────────────────────────────────────
 
 function MetricCell({
-  week, prevWeek, row,
+  week, prevWeek, row, channel,
 }: {
   week: Week;
   prevWeek: Week | null;
   row: RowDef;
+  channel: Channel;
 }) {
+  const metrics = getDisplayMetrics(week, channel);
+  const prevMetrics = prevWeek ? getDisplayMetrics(prevWeek, channel) : null;
+
   if (week.loading) {
     return (
       <td className="px-4 py-3">
@@ -153,19 +221,19 @@ function MetricCell({
       </td>
     );
   }
-  if (week.error || !week.metrics) {
+  if (week.error || !metrics) {
     return <td className="px-4 py-3 text-sm text-muted-foreground/50">—</td>;
   }
 
-  const showVar = !!prevWeek && !!prevWeek.metrics && !prevWeek.loading;
+  const showVar = !!prevWeek && !!prevMetrics && !prevWeek.loading;
 
   return (
     <td className="px-4 py-3">
-      <span className="text-sm text-foreground tabular-nums">{row.format(week.metrics)}</span>
+      <span className="text-sm text-foreground tabular-nums">{row.format(metrics)}</span>
       {showVar && (
         <VarBadge
-          current={row.raw(week.metrics)}
-          previous={row.raw(prevWeek!.metrics!)}
+          current={row.raw(metrics)}
+          previous={row.raw(prevMetrics!)}
           positiveIsGood={row.positiveIsGood}
           alwaysNeutral={row.alwaysNeutral}
         />
@@ -176,36 +244,52 @@ function MetricCell({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function WeeklyEvolutionTable({ clientId, clientType = "ecommerce" }: WeeklyEvolutionTableProps) {
-  const ROWS = clientType === "servicios" ? SERVICIOS_ROWS : ECOMMERCE_ROWS;
+export function WeeklyEvolutionTable({
+  clientId,
+  clientType = "ecommerce",
+  channel = "meta",
+  hasGoogle = false,
+}: WeeklyEvolutionTableProps) {
   const [weeks, setWeeks] = useState<Week[]>(() =>
-    getWeeks().map((w) => ({ ...w, metrics: null, loading: true, error: false }))
+    getWeeks().map((w) => ({ ...w, metaMetrics: null, googleMetrics: null, loading: true, error: false }))
   );
 
   useEffect(() => {
     const weekDefs = getWeeks();
-    setWeeks(weekDefs.map((w) => ({ ...w, metrics: null, loading: true, error: false })));
+    setWeeks(weekDefs.map((w) => ({ ...w, metaMetrics: null, googleMetrics: null, loading: true, error: false })));
 
     weekDefs.forEach((w, idx) => {
-      fetch(`/api/meta/${clientId}?since=${w.since}&until=${w.until}&type=overview`)
+      const metaPromise = fetch(`/api/meta/${clientId}?since=${w.since}&until=${w.until}&type=overview`)
         .then((r) => r.json())
-        .then((json) => {
-          const m = json?.accountMetrics ?? null;
-          setWeeks((prev) => {
-            const next = [...prev];
-            next[idx] = { ...next[idx], metrics: m, loading: false, error: !m };
-            return next;
-          });
-        })
-        .catch(() => {
-          setWeeks((prev) => {
-            const next = [...prev];
-            next[idx] = { ...next[idx], loading: false, error: true };
-            return next;
-          });
+        .then((json) => json?.accountMetrics ?? null)
+        .catch(() => null);
+
+      const googlePromise = (hasGoogle && channel !== "meta")
+        ? fetch(`/api/google/${clientId}?since=${w.since}&until=${w.until}`)
+            .then((r) => r.json())
+            .then((json) => json?.current ? googleToWeekMetrics(json.current) : null)
+            .catch(() => null)
+        : Promise.resolve(null);
+
+      Promise.all([metaPromise, googlePromise]).then(([metaMetrics, googleMetrics]) => {
+        setWeeks((prev) => {
+          const next = [...prev];
+          const hasData = !!(metaMetrics || googleMetrics);
+          next[idx] = { ...next[idx], metaMetrics, googleMetrics, loading: false, error: !hasData };
+          return next;
         });
+      });
     });
-  }, [clientId]);
+  }, [clientId, channel, hasGoogle]);
+
+  let ROWS: RowDef[];
+  if (channel === "google") {
+    ROWS = COMBINED_ROWS;
+  } else if (channel === "all" && hasGoogle) {
+    ROWS = COMBINED_ROWS;
+  } else {
+    ROWS = clientType === "servicios" ? SERVICIOS_ROWS : ECOMMERCE_ROWS;
+  }
 
   return (
     <div className="mb-8">
@@ -242,6 +326,7 @@ export function WeeklyEvolutionTable({ clientId, clientType = "ecommerce" }: Wee
                     week={w}
                     prevWeek={idx > 0 ? weeks[idx - 1] : null}
                     row={row}
+                    channel={channel}
                   />
                 ))}
               </tr>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveMetaAccessToken } from "@/lib/meta-ads/client";
 
 const META_API_BASE = "https://graph.facebook.com/v21.0";
 
@@ -49,7 +50,7 @@ export async function PATCH(
     // Call Meta API
     const params2 = new URLSearchParams({
       status,
-      access_token: client.meta_access_token,
+      access_token: resolveMetaAccessToken(client.meta_access_token),
     });
     const res = await fetch(`${META_API_BASE}/${adId}?${params2.toString()}`, {
       method: "POST",

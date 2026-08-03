@@ -6,6 +6,7 @@ import {
   fetchIgVisitsTotal,
   fetchCampaigns,
   fetchAds,
+  resolveMetaAccessToken,
 } from "@/lib/meta-ads/client";
 import type { DateFilter } from "@/lib/meta-ads/client";
 
@@ -162,7 +163,7 @@ export async function GET(
 
     const { data: client, error: clientError } = await admin
       .from("clients")
-      .select("id, name, meta_account_id, meta_access_token, client_type, client_thresholds(roas_min, cpa_max, sales_min)")
+      .select("id, name, meta_account_id, meta_access_token, client_type, google_ads_account_id, client_thresholds(roas_min, cpa_max, sales_min)")
       .eq("id", accountId)
       .single();
 
@@ -170,7 +171,8 @@ export async function GET(
       return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
     }
 
-    const { meta_account_id, meta_access_token } = client;
+    const { meta_account_id } = client;
+    const meta_access_token = resolveMetaAccessToken(client.meta_access_token);
     const threshold = (client.client_thresholds as { roas_min: number; cpa_max: number; sales_min: number }[])?.[0] ?? null;
     const dateKey = since ? `${since}:${until}` : presetParam;
     const CV = "v9"; // bump when fetch shape changes to bust stale cache
@@ -204,6 +206,7 @@ export async function GET(
         name: client.name,
         meta_account_id,
         client_type: (client.client_type as "ecommerce" | "servicios") ?? "ecommerce",
+        has_google: !!(client as { google_ads_account_id?: string | null }).google_ads_account_id,
         thresholds: threshold,
         accountMetrics: payload.accountMetrics,
         comparisonMetrics: payload.comparisonMetrics,
@@ -261,6 +264,7 @@ export async function GET(
       name: client.name,
       meta_account_id,
       client_type: (client.client_type as "ecommerce" | "servicios") ?? "ecommerce",
+      has_google: !!(client as { google_ads_account_id?: string | null }).google_ads_account_id,
       thresholds: threshold,
       ...metaPayload,
     });

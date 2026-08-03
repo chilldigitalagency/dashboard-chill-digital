@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchAccountInsights } from "@/lib/meta-ads/client";
+import { fetchAccountInsights, resolveMetaAccessToken } from "@/lib/meta-ads/client";
 
 // ─── Projection helpers ───────────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ export async function GET() {
       id: string;
       name: string;
       meta_account_id: string;
-      meta_access_token: string;
+      meta_access_token: string | null;
     };
 
     let clients: ClientRow[] = [];
@@ -123,7 +123,7 @@ export async function GET() {
         const [metaData, goalsResult] = await Promise.all([
           fetchAccountInsights(
             client.meta_account_id,
-            client.meta_access_token,
+            resolveMetaAccessToken(client.meta_access_token),
             { type: "preset", preset: "this_month" }
           ),
           admin

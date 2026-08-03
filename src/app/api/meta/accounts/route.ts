@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchMetaAds } from "@/lib/meta-ads/client";
+import { fetchMetaAds, resolveMetaAccessToken } from "@/lib/meta-ads/client";
 
 const VALID_DATE_PRESETS = ["last_7d", "last_14d", "last_30d", "this_month"];
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     id: string;
     name: string;
     meta_account_id: string;
-    meta_access_token: string;
+    meta_access_token: string | null;
     client_thresholds: { roas_min: number; cpa_max: number; sales_min: number }[];
   }[] = [];
 
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     clients.map(async (client) => {
       const metrics = await fetchMetaAds(
         client.meta_account_id,
-        client.meta_access_token,
+        resolveMetaAccessToken(client.meta_access_token),
         datePreset
       );
 

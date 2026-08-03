@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveMetaAccessToken } from "@/lib/meta-ads/client";
 
 const META_API_BASE = "https://graph.facebook.com/v21.0";
 
@@ -44,7 +45,7 @@ export async function PATCH(
 
     if (error || !client) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
 
-    const p = new URLSearchParams({ status, access_token: client.meta_access_token });
+    const p = new URLSearchParams({ status, access_token: resolveMetaAccessToken(client.meta_access_token) });
     const res = await fetch(`${META_API_BASE}/${campaignId}?${p.toString()}`, {
       method: "POST",
       cache: "no-store",

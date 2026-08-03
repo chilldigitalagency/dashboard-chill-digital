@@ -2,6 +2,8 @@
 
 import type { DateSelection } from "@/components/shared/DateRangePicker";
 
+type Channel = "meta" | "google" | "all";
+
 interface Metrics {
   spend: number;
   purchases: number;
@@ -10,10 +12,21 @@ interface Metrics {
   cpa: number;
   ctr: number;
   cpm: number;
+  clicks: number;
   landing_page_view: number;
   ig_profile_visits: number;
   messages: number;
   cost_per_message: number;
+}
+
+interface GoogleMetrics {
+  spend: number;
+  conversions: number;
+  conversion_value: number;
+  roas: number;
+  cpa: number;
+  clicks: number;
+  impressions: number;
 }
 
 interface PeriodComparisonTableProps {
@@ -22,6 +35,9 @@ interface PeriodComparisonTableProps {
   dateSelection: DateSelection;
   loading?: boolean;
   clientType?: "ecommerce" | "servicios";
+  channel?: Channel;
+  googleCurrent?: GoogleMetrics | null;
+  googlePrevious?: GoogleMetrics | null;
 }
 
 // ─── Period label helpers ─────────────────────────────────────────────────────
@@ -104,26 +120,31 @@ function SkeletonRow() {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PeriodComparisonTable({ current, previous, dateSelection, loading, clientType = "ecommerce" }: PeriodComparisonTableProps) {
+type Row = {
+  label: string;
+  cur: string;
+  prev: string;
+  curRaw: number;
+  prevRaw: number;
+  positiveIsGood: boolean;
+  alwaysNeutral?: boolean;
+};
+
+export function PeriodComparisonTable({
+  current, previous, dateSelection, loading,
+  clientType = "ecommerce",
+  channel = "meta",
+  googleCurrent, googlePrevious,
+}: PeriodComparisonTableProps) {
   const [labelCurrent, labelPrevious] = getPeriodLabels(dateSelection);
 
+  // ── Meta ecommerce rows ───────────────────────────────────────────────────
   const ticketCurrent  = current  && current.purchases  > 0 ? current.revenue  / current.purchases  : 0;
   const ticketPrevious = previous && previous.purchases > 0 ? previous.revenue / previous.purchases : 0;
   const convCurrent    = current  && current.landing_page_view  > 0 ? (current.purchases  / current.landing_page_view)  * 100 : 0;
   const convPrevious   = previous && previous.landing_page_view > 0 ? (previous.purchases / previous.landing_page_view) * 100 : 0;
-
   const costPerVisitCur  = current  && current.ig_profile_visits  > 0 ? current.spend  / current.ig_profile_visits  : 0;
   const costPerVisitPrev = previous && previous.ig_profile_visits > 0 ? previous.spend / previous.ig_profile_visits : 0;
-
-  type Row = {
-    label: string;
-    cur: string;
-    prev: string;
-    curRaw: number;
-    prevRaw: number;
-    positiveIsGood: boolean;
-    alwaysNeutral?: boolean;
-  };
 
   const ecommerceRows: Row[] = current && previous ? [
     { label: "Inversión",          cur: fCurrency(current.spend),    prev: fCurrency(previous.spend),    curRaw: current.spend,    prevRaw: previous.spend,    positiveIsGood: true, alwaysNeutral: true },
@@ -134,6 +155,7 @@ export function PeriodComparisonTable({ current, previous, dateSelection, loadin
     { label: "Ticket promedio",    cur: fCurrency(ticketCurrent),    prev: fCurrency(ticketPrevious),    curRaw: ticketCurrent,    prevRaw: ticketPrevious,    positiveIsGood: true  },
     { label: "Tasa de conversión", cur: `${fNum(convCurrent, 2)}%`,  prev: `${fNum(convPrevious, 2)}%`,  curRaw: convCurrent,      prevRaw: convPrevious,      positiveIsGood: true  },
     { label: "CTR",                cur: `${fNum(current.ctr, 2)}%`,  prev: `${fNum(previous.ctr, 2)}%`,  curRaw: current.ctr,      prevRaw: previous.ctr,      positiveIsGood: true  },
+    { label: "Clics",              cur: fNum(current.clicks ?? 0),   prev: fNum(previous.clicks ?? 0),   curRaw: current.clicks ?? 0, prevRaw: previous.clicks ?? 0, positiveIsGood: true  },
   ] : [];
 
   const serviciosRows: Row[] = current && previous ? [
@@ -146,7 +168,52 @@ export function PeriodComparisonTable({ current, previous, dateSelection, loadin
     { label: "CPM",                 cur: fCurrency(current.cpm),                                                       prev: fCurrency(previous.cpm),                                                       curRaw: current.cpm,                   prevRaw: previous.cpm,                   positiveIsGood: false },
   ] : [];
 
-  const rows = clientType === "servicios" ? serviciosRows : ecommerceRows;
+  // ── Google rows ───────────────────────────────────────────────────────────
+  const googleRows: Row[] = googleCurrent && googlePrevious ? [
+    { label: "Inversión",          cur: fCurrency(googleCurrent.spend),            prev: fCurrency(googlePrevious.spend),            curRaw: googleCurrent.spend,            prevRaw: googlePrevious.spend,            positiveIsGood: true,  alwaysNeutral: true },
+    { label: "Conversiones",       cur: fNum(googleCurrent.conversions),           prev: fNum(googlePrevious.conversions),           curRaw: googleCurrent.conversions,      prevRaw: googlePrevious.conversions,      positiveIsGood: true  },
+    { label: "CPA",                cur: googleCurrent.cpa > 0 ? fCurrency(googleCurrent.cpa) : "—",  prev: googlePrevious.cpa > 0 ? fCurrency(googlePrevious.cpa) : "—", curRaw: googleCurrent.cpa, prevRaw: googlePrevious.cpa, positiveIsGood: false },
+    { label: "ROAS",               cur: `${fNum(googleCurrent.roas, 2)}x`,        prev: `${fNum(googlePrevious.roas, 2)}x`,        curRaw: googleCurrent.roas,             prevRaw: googlePrevious.roas,             positiveIsGood: true  },
+    { label: "Valor de conversión",cur: fCurrency(googleCurrent.conversion_value), prev: fCurrency(googlePrevious.conversion_value), curRaw: googleCurrent.conversion_value, prevRaw: googlePrevious.conversion_value, positiveIsGood: true  },
+    { label: "Clics",              cur: fNum(googleCurrent.clicks),               prev: fNum(googlePrevious.clicks),               curRaw: googleCurrent.clicks,           prevRaw: googlePrevious.clicks,           positiveIsGood: true  },
+  ] : [];
+
+  // ── Combined rows ─────────────────────────────────────────────────────────
+  const combinedRows: Row[] = (() => {
+    if (!current || !previous || !googleCurrent || !googlePrevious) return [];
+    const curSpend = current.spend + googleCurrent.spend;
+    const prevSpend = previous.spend + googlePrevious.spend;
+    const curConv = current.purchases + googleCurrent.conversions;
+    const prevConv = previous.purchases + googlePrevious.conversions;
+    const curRev = current.revenue + googleCurrent.conversion_value;
+    const prevRev = previous.revenue + googlePrevious.conversion_value;
+    const curRoas = curSpend > 0 ? curRev / curSpend : 0;
+    const prevRoas = prevSpend > 0 ? prevRev / prevSpend : 0;
+    const curCpa = curConv > 0 ? curSpend / curConv : 0;
+    const prevCpa = prevConv > 0 ? prevSpend / prevConv : 0;
+    const curClics = (current.clicks ?? 0) + googleCurrent.clicks;
+    const prevClics = (previous.clicks ?? 0) + googlePrevious.clicks;
+
+    return [
+      { label: "Inversión total",    cur: fCurrency(curSpend),        prev: fCurrency(prevSpend),       curRaw: curSpend,   prevRaw: prevSpend,  positiveIsGood: true,  alwaysNeutral: true },
+      { label: "Compras",            cur: fNum(curConv),              prev: fNum(prevConv),             curRaw: curConv,    prevRaw: prevConv,   positiveIsGood: true  },
+      { label: "CPA",                cur: curCpa > 0 ? fCurrency(curCpa) : "—",  prev: prevCpa > 0 ? fCurrency(prevCpa) : "—", curRaw: curCpa, prevRaw: prevCpa,   positiveIsGood: false },
+      { label: "ROAS",               cur: `${fNum(curRoas, 2)}x`,     prev: `${fNum(prevRoas, 2)}x`,   curRaw: curRoas,    prevRaw: prevRoas,   positiveIsGood: true  },
+      { label: "Facturación total",  cur: fCurrency(curRev),          prev: fCurrency(prevRev),         curRaw: curRev,     prevRaw: prevRev,    positiveIsGood: true  },
+      { label: "Ticket promedio",    cur: curConv > 0 ? fCurrency(curRev / curConv) : "—",  prev: prevConv > 0 ? fCurrency(prevRev / prevConv) : "—", curRaw: curConv > 0 ? curRev / curConv : 0, prevRaw: prevConv > 0 ? prevRev / prevConv : 0, positiveIsGood: true },
+      { label: "Clics",              cur: fNum(curClics),             prev: fNum(prevClics),            curRaw: curClics,   prevRaw: prevClics,  positiveIsGood: true  },
+    ];
+  })();
+
+  // ── Select rows based on channel ──────────────────────────────────────────
+  let rows: Row[] = [];
+  if (channel === "google") {
+    rows = googleRows;
+  } else if (channel === "all" && (googleCurrent || googlePrevious)) {
+    rows = combinedRows;
+  } else {
+    rows = clientType === "servicios" ? serviciosRows : ecommerceRows;
+  }
 
   return (
     <div className="mb-8">

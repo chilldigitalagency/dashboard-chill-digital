@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
   name             text          NOT NULL,
   slug             text          NOT NULL UNIQUE,
   meta_account_id  text          NOT NULL,
-  meta_access_token text         NOT NULL,
+  meta_access_token text,
   client_type      text          NOT NULL DEFAULT 'ecommerce' CHECK (client_type IN ('ecommerce', 'servicios')),
   active           boolean       NOT NULL DEFAULT true,
   created_at       timestamptz   NOT NULL DEFAULT now()
@@ -22,10 +22,13 @@ CREATE TABLE IF NOT EXISTS public.clients (
 
 -- MIGRATION (para bases de datos existentes):
 -- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS client_type text NOT NULL DEFAULT 'ecommerce' CHECK (client_type IN ('ecommerce', 'servicios'));
+-- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS google_ads_account_id text;
+-- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS google_ads_access_token text;
+-- ALTER TABLE public.clients ALTER COLUMN meta_access_token DROP NOT NULL; -- ya no se usa: el acceso a Meta se maneja con META_SYSTEM_USER_TOKEN a nivel de servidor
 
 COMMENT ON TABLE public.clients IS 'Cuentas publicitarias de clientes de la agencia';
 COMMENT ON COLUMN public.clients.meta_account_id IS 'ID de cuenta de Meta Ads (act_XXXXXXXXXX)';
-COMMENT ON COLUMN public.clients.meta_access_token IS 'Token de acceso a Meta Marketing API del cliente';
+COMMENT ON COLUMN public.clients.meta_access_token IS 'Obsoleto: el acceso a Meta ahora usa META_SYSTEM_USER_TOKEN (variable de entorno del servidor)';
 
 
 -- 2. client_thresholds

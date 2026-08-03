@@ -117,20 +117,49 @@ export function ClientModal({ open, onOpenChange, client }: ClientModalProps) {
               required
             />
             <p className="text-xs text-muted-foreground">
-              Formato: act_ seguido del número de cuenta publicitaria.
+              Formato: act_ seguido del número de cuenta publicitaria. El acceso a Meta se maneja por defecto con un token único (System User) del servidor.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="meta_access_token">Meta Access Token</Label>
+            <Label htmlFor="meta_access_token">Meta Access Token (opcional)</Label>
             <Input
               id="meta_access_token"
               name="meta_access_token"
               type="password"
-              placeholder="Token de acceso de Meta API"
-              defaultValue={client?.meta_access_token}
-              required
+              placeholder="Dejar vacío para usar el token único del servidor"
+              defaultValue={client?.meta_access_token ?? ""}
             />
+            <p className="text-xs text-muted-foreground">
+              Solo completar para cuentas personales que el System User no puede administrar. Si se completa, este token tiene prioridad sobre el token único.
+            </p>
+          </div>
+
+          {/* Google Ads (opcional) */}
+          <div className="rounded-lg border border-border p-4 space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Google Ads (opcional)</p>
+            <div className="space-y-2">
+              <Label htmlFor="google_ads_account_id">Google Ads Account ID</Label>
+              <Input
+                id="google_ads_account_id"
+                name="google_ads_account_id"
+                placeholder="Ej: 1234567890"
+                defaultValue={client?.google_ads_account_id ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="google_ads_access_token">Windsor.ai API Key</Label>
+              <Input
+                id="google_ads_access_token"
+                name="google_ads_access_token"
+                type="password"
+                placeholder="API key de Windsor.ai"
+                defaultValue={client?.google_ads_access_token ?? ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                Conectar en windsor.ai → Google Ads → copiar el API key del conector.
+              </p>
+            </div>
           </div>
 
           {clientType === "ecommerce" && (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchServiciosDailyInsights } from "@/lib/meta-ads/client";
+import { fetchServiciosDailyInsights, resolveMetaAccessToken } from "@/lib/meta-ads/client";
 import type { DateFilter } from "@/lib/meta-ads/client";
 
 const VALID_PRESETS = ["today", "yesterday", "last_7d", "last_14d", "last_30d", "this_month", "last_month"];
@@ -56,7 +56,7 @@ export async function GET(
 
     if (error || !client) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
 
-    const data = await fetchServiciosDailyInsights(client.meta_account_id, client.meta_access_token, dateFilter);
+    const data = await fetchServiciosDailyInsights(client.meta_account_id, resolveMetaAccessToken(client.meta_access_token), dateFilter);
     return NextResponse.json(data);
   } catch (err) {
     console.error("[API /daily-servicios]", err);
